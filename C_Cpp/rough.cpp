@@ -1,23 +1,15 @@
 #include <iostream>
-#include <fstream>
-#include <nlohmann\json.hpp>
-
-using json = nlohmann::json;
+using namespace std;
 
 int main() {
-    json data;
+    string word;
 
-    data["name"] = "HeavyDriver";
-    data["score"] = 100;
-    data["tasks"] = {"Eat", "Code", "Sleep"};
+    cout << "Enter a word: ";
+    cin >> word;
 
-    std::ofstream file("data.json");
-
-    if (file.is_open()) {
-        file << data.dump(4); // pretty print with indent
-        file.close();
-        std::cout << "JSON saved\n";
-    }
+    // Print the first character
+    cout << "The first letter is: " << word[0] << endl;
+    cout << word;
 
     return 0;
 }
