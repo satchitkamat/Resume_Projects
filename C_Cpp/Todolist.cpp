@@ -16,6 +16,7 @@ Color background = {30, 30, 47, 255};
 
 // UI Rectangles
 Rectangle backgroundBox;
+Rectangle setCursor;
 Rectangle submitBox;
 Rectangle errorBox;
 Rectangle itemBackground;
@@ -32,49 +33,108 @@ float errorDuration = 2.0f;
 
 
 //==================== INPUT BOX ====================//
+
 class InputBox {
 private:
     string inputText = "";
     bool boxActive = false;
     int maxChars = 40;
 
+    // Backspace repeat handling
     float backspaceHoldTime = 0.0f;
     float backspaceDelay = 0.4f;
     float backspaceRepeat = 0.05f;
 
+    // Cursor system
+    float cursorTimer = 0.0f;
+    bool cursorVisible = false;
+    int cursorIndex = 0;
+
+    int fontSize = 20;
+
 public:
+
     void Update() {
+
+        // ----------------- Activate the input box -----------------
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             boxActive = CheckCollisionPointRec(GetMousePosition(), backgroundBox);
         }
 
+        // ----------------- Handle text input -----------------
         if (boxActive) {
+
             int key = GetCharPressed();
             while (key > 0) {
                 if (key >= 32 && key <= 125 && inputText.size() < (size_t)maxChars) {
-                    inputText += (char)key;
+                    // Insert at cursor position
+                    inputText.insert(inputText.begin() + cursorIndex, (char)key);
+                    cursorIndex++;
                 }
                 key = GetCharPressed();
             }
 
-            if (IsKeyPressed(KEY_BACKSPACE) && !inputText.empty()) {
-                inputText.pop_back();
+            // BACKSPACE single press
+            if (IsKeyPressed(KEY_BACKSPACE) && cursorIndex > 0) {
+                inputText.erase(inputText.begin() + cursorIndex - 1);
+                cursorIndex--;
             }
 
-            if (IsKeyDown(KEY_BACKSPACE) && !inputText.empty()) {
+            // BACKSPACE hold repeat
+            if (IsKeyDown(KEY_BACKSPACE) && cursorIndex > 0) {
                 backspaceHoldTime += GetFrameTime();
                 if (backspaceHoldTime > backspaceDelay) {
                     backspaceHoldTime -= backspaceRepeat;
-                    inputText.pop_back();
+                    inputText.erase(inputText.begin() + cursorIndex - 1);
+                    cursorIndex--;
                 }
             } else {
                 backspaceHoldTime = 0.0f;
             }
+
+            // ----------------- Cursor LEFT / RIGHT movement -----------------
+            if (IsKeyPressed(KEY_LEFT) && cursorIndex > 0)
+                cursorIndex--;
+
+            if (IsKeyPressed(KEY_RIGHT) && cursorIndex < inputText.length())
+                cursorIndex++;
         }
 
+        // ----------------- Cursor blink -----------------
+        cursorTimer += GetFrameTime();
+        if (cursorTimer >= 0.5f) {
+            cursorTimer = 0.0f;
+            cursorVisible = !cursorVisible;
+        }
+
+        // ----------------- DRAW INPUT BOX -----------------
         DrawRectangleRec(backgroundBox, boxActive ? LIGHTGRAY : GRAY);
-        DrawText(inputText.c_str(), (int)backgroundBox.x + 5, (int)backgroundBox.y + 10, 20, BLACK);
+
+        DrawText(inputText.c_str(),
+                 backgroundBox.x + 5,
+                 backgroundBox.y + 10,
+                 fontSize,
+                 BLACK);
+
+        // ----------------- CALCULATE CURSOR POSITION -----------------
+        string beforeCursor = inputText.substr(0, cursorIndex);
+
+        float cursorX = backgroundBox.x + 5 + MeasureText(beforeCursor.c_str(), fontSize);
+        float cursorY = backgroundBox.y + 8;
+        float cursorHeight = fontSize;
+
+        // ----------------- DRAW CURSOR -----------------
+        if (cursorVisible && boxActive) {
+            DrawLineEx(
+                {cursorX, cursorY},
+                {cursorX, cursorY + cursorHeight},
+                2.0f,
+                BLACK
+            );
+        }
     }
+
+    // =============== Public helper methods =============== //
 
     string GetText() const {
         return inputText;
@@ -82,9 +142,11 @@ public:
 
     void Clear() {
         inputText = "";
+        cursorIndex = 0;
         boxActive = false;
     }
 };
+
 
 //==================== LIST HANDLER ====================//
 class ManageList {
@@ -268,6 +330,11 @@ public:
                      clicked ? BLACK : WHITE);
         }
 
+        if((clicked || IsKeyPressed(KEY_LEFT)) && inputBox){
+            string text = inputBox -> GetText();
+            
+        }
+
         if ((clicked || IsKeyPressed(KEY_ENTER)) && inputBox) {
             string text = inputBox->GetText();
             if (!text.empty()) {
@@ -309,6 +376,13 @@ int main() {
         } else {
             backgroundBox = {200.0f, 120.0f, screenWidth - 700.0f, 50.0f};
         }
+
+        setCursor = {
+            backgroundBox.x + 1, 
+            backgroundBox.y,
+            10.0f,
+            backgroundBox.height
+        };
 
         submitBox = {backgroundBox.x + backgroundBox.width + 10.0f,
                      backgroundBox.y,

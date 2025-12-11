@@ -1,18 +1,28 @@
 {
     "status": [
         true,
-        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
         false,
         false,
         false,
         false
     ],
     "tasks": [
-        "czxzxczxczxc",
-        "eyreteteetre",
-        "sadasd",
-        "sjkdhsdfsdffd",
-        "sdfsdfsdf",
-        "sdfsdfsfdsf"
+        "To Do List",
+        "Library Management System",
+        "Bank System Simulator",
+        "File Explorer (GUI, CLI)",
+        "Student Result Management System",
+        "Multi-User Chat Application",
+        "Task Schedular",
+        "Mini Database Engine",
+        "Text Editor",
+        "ATM Machine Simulation",
+        "Opreating System Process Simulator"
     ]
 }
