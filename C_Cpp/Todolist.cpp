@@ -19,6 +19,10 @@ Rectangle backgroundBox;
 Rectangle submitBox;
 Rectangle errorBox;
 Rectangle itemBackground;
+float cx = itemBackground.x + itemBackground.width - 20.0f;
+float cy = itemBackground.y + 20.0f;
+
+Rectangle crossRect = { cx - 25, cy - 25, 50, 5 };
 
 //==================== INPUT BOX ====================//
 class InputBox {
@@ -80,7 +84,7 @@ class InputBox {
 };
 
 //==================== LIST HANDLER ====================//
-class CreateList {
+class ManageList {
     private:
         InputBox* inputBox = nullptr;
         json list;
@@ -90,7 +94,7 @@ class CreateList {
             inputBox = box;
         }
 
-        CreateList() {
+        ManageList() {
             // Load existing JSON from file if it exists
             ifstream infile("list.json");
             if (infile.is_open()) {
@@ -117,6 +121,7 @@ class CreateList {
 
             if (!exists) {
                 list["tasks"].push_back(text);
+                list["status"].push_back(false);
                 cout << "Added: " << text << endl;
                 // Save to file
                 ofstream file("list.json");
@@ -145,8 +150,12 @@ class CreateList {
 
             // Accessing data
             if (j.contains("tasks")) {
-                printItem();
                 cout << "tasks: " << j["tasks"].back().get<string>() << endl;
+                printItem();
+            }
+            if (j.contains("status")) {
+                cout << "status: " << j["status"].back().get<bool>() << endl;
+                printItem();
             }
         }
         void DrawThickCross(int x, int y, int size, float thick, Color color) {
@@ -159,21 +168,96 @@ class CreateList {
                        thick, color);
         }
         
-        void printItem(){
-            if(list["tasks"].size() != 0){
-                DrawText("Pending", (int)backgroundBox.x + 20, (int)backgroundBox.y + backgroundBox.height + 10, 20, WHITE);
-                for(int i = 0; i < list["tasks"].size(); i++){
-                    string currentItem = list["tasks"][i].get<string>();
-                    DrawRectangleRec(itemBackground, i % 2 == 0 ? GRAY : LIGHTGRAY);
-                    DrawCircleLines(itemBackground.x + 20.0f, itemBackground.y + 20.0f, 10.0f, i % 2 == 0 ? LIGHTGRAY : GRAY);
-                    DrawText(currentItem.c_str(),itemBackground.x + 50.0f, itemBackground.y + 10.0f, 25, BLACK);
-                    DrawThickCross(itemBackground.x + itemBackground.width - 20.0f, itemBackground.y + 20.0f, 25, 3.0f,i % 2 == 0 ? LIGHTGRAY : GRAY);
-                    itemBackground.y += itemBackground.height; 
+        void printItem() {
+            if (list["tasks"].size() == 0) return;
+            if (list["status"].size() == 0) return;
+            
+            
+            for (int i = 0; i < list["tasks"].size(); i++) {
+            
+                string currentItem = list["tasks"][i].get<string>();
+                bool currentItemStatus = list["status"][i].get<bool>();
+            
+                // Background color depends on status
+                DrawRectangleRec(
+                    itemBackground,
+                    (i % 2 == 0)
+                        ? (currentItemStatus ? DARKGREEN : GRAY)
+                        : (currentItemStatus ? GREEN : LIGHTGRAY)
+                );
+            
+                // Circle
+                int centerx = itemBackground.x + 20;
+                int centery = itemBackground.y + 20;
+                float radius = 10.0f;
+                Vector2 center = { (float)centerx, (float)centery };
+            
+                // Circle outline
+                DrawCircleLines(centerx, centery, radius,
+                                (i % 2 == 0)
+                                    ? (currentItemStatus ? GREEN : LIGHTGRAY)
+                                    : (currentItemStatus ? DARKGREEN : GRAY));
+                
+                // ✔ draw filled circle if status = true
+                if (currentItemStatus) {
+                    DrawCircle(centerx, centery, radius - 1,
+                               (i % 2 == 0 ? GREEN : DARKGREEN));
                 }
+            
+                // Toggle on click
+                Vector2 mouse = GetMousePosition();
+                if (CheckCollisionPointCircle(mouse, center, radius) &&
+                    IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+                {
+                    list["status"][i] = !currentItemStatus;   // toggle
+                
+                    // Save JSON
+                    ofstream f("list.json");
+                    f << list.dump(4);
+                    f.close();
+                }
+            
+                // Text
+                DrawText(currentItem.c_str(),
+                         itemBackground.x + 50, itemBackground.y + 10,
+                         25, BLACK);
+            
+                // Cross button
+                float cx = itemBackground.x + itemBackground.width - 30;
+                float cy = itemBackground.y + 20;
+                float size = 20;
+            
+                DrawThickCross(cx, cy, size, 3.0f,
+                               (i % 2 == 0 ? LIGHTGRAY : GRAY));
+                
+                Rectangle crossRect = { cx - 12, cy - 12, 24, 24 };
+                
+                // Hover highlight
+                if (CheckCollisionPointRec(mouse, crossRect))
+                    DrawRectangleLinesEx(crossRect, 2, RED);
+                
+                // Delete
+                if (CheckCollisionPointRec(mouse, crossRect) &&
+                    IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+                {
+                    // DELETE both task and status!
+                    list["tasks"].erase(list["tasks"].begin() + i);
+                    list["status"].erase(list["status"].begin() + i);
+                
+                    // Save JSON
+                    ofstream f("list.json");
+                    f << list.dump(4);
+                    f.close();
+                
+                    return;  // IMPORTANT: stop because array changed
+                }
+            
+                itemBackground.y += itemBackground.height;  // move to next item
             }
         }
 
-    };
+
+};
     
 //==================== SUBMIT BUTTON ====================//
 class SubmitButton {
@@ -182,7 +266,7 @@ class SubmitButton {
         InputBox* inputBox = nullptr;   
         
         public:
-        CreateList list;    
+        ManageList list;    
         
         void SetInputBox(InputBox* box) {
             inputBox = box;
@@ -220,7 +304,7 @@ class SubmitButton {
         
         InputBox input;
         SubmitButton button;
-        CreateList createlist;
+
         
         button.SetInputBox(&input);
         
@@ -240,7 +324,7 @@ class SubmitButton {
             
             input.Update();
             button.Update();
-            createlist.printItem();
+            button.list.printItem();
             
             DrawText(TextFormat("Width: %d Height: %d", screenWidth, screenHeight), screenWidth - 260, screenHeight - 25, 20, WHITE);
             
