@@ -1,28 +1,147 @@
 {
-    "status": [
-        true,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false
-    ],
-    "tasks": [
-        "To Do List",
-        "Library Management System",
-        "Bank System Simulator",
-        "File Explorer (GUI, CLI)",
-        "Student Result Management System",
-        "Multi-User Chat Application",
-        "Task Schedular",
-        "Mini Database Engine",
-        "Text Editor",
-        "ATM Machine Simulation",
-        "Opreating System Process Simulator"
+    "listdata": [
+        {
+            "duedate": {
+                "day": 18,
+                "month": 12,
+                "year": 2025
+            },
+            "index": 3,
+            "priority": 3,
+            "status": true,
+            "tasks": "To Do List"
+        },
+        {
+            "duedate": {
+                "day": 18,
+                "month": 12,
+                "year": 2025
+            },
+            "index": 3,
+            "priority": 3,
+            "status": false,
+            "tasks": "Library Management System"
+        },
+        {
+            "duedate": {
+                "day": 18,
+                "month": 12,
+                "year": 2025
+            },
+            "index": 4,
+            "priority": 3,
+            "status": false,
+            "tasks": "Banking System Simulator"
+        },
+        {
+            "duedate": {
+                "day": 18,
+                "month": 12,
+                "year": 2025
+            },
+            "index": 5,
+            "priority": 3,
+            "status": false,
+            "tasks": "File Explorer"
+        },
+        {
+            "duedate": {
+                "day": 18,
+                "month": 12,
+                "year": 2025
+            },
+            "index": 6,
+            "priority": 3,
+            "status": false,
+            "tasks": "Student Result Management System"
+        },
+        {
+            "duedate": {
+                "day": 18,
+                "month": 12,
+                "year": 2025
+            },
+            "index": 7,
+            "priority": 3,
+            "status": false,
+            "tasks": "Multi-User Chat Application"
+        },
+        {
+            "duedate": {
+                "day": 18,
+                "month": 12,
+                "year": 2025
+            },
+            "index": 8,
+            "priority": 3,
+            "status": false,
+            "tasks": "Task Scheduler"
+        },
+        {
+            "duedate": {
+                "day": 18,
+                "month": 12,
+                "year": 2025
+            },
+            "index": 9,
+            "priority": 3,
+            "status": false,
+            "tasks": "Mini DataBase Engine"
+        },
+        {
+            "duedate": {
+                "day": 18,
+                "month": 12,
+                "year": 2025
+            },
+            "index": 10,
+            "priority": 3,
+            "status": false,
+            "tasks": "Text Editor"
+        },
+        {
+            "duedate": {
+                "day": 18,
+                "month": 12,
+                "year": 2025
+            },
+            "index": 11,
+            "priority": 3,
+            "status": false,
+            "tasks": "ATM Machine Simulation"
+        },
+        {
+            "duedate": {
+                "day": 18,
+                "month": 12,
+                "year": 2025
+            },
+            "index": 12,
+            "priority": 3,
+            "status": false,
+            "tasks": "Opreating System Process Simulator"
+        },
+        {
+            "duedate": {
+                "day": 18,
+                "month": 12,
+                "year": 2025
+            },
+            "index": 13,
+            "priority": 3,
+            "status": false,
+            "tasks": "Add Priority using date"
+        },
+        {
+            "duedate": {
+                "day": 18,
+                "month": 12,
+                "year": 2025
+            },
+            "index": 14,
+            "priority": 3,
+            "status": false,
+            "tasks": "Add responsiveness to all"
+        }
     ]
 }
