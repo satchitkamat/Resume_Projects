@@ -1,0 +1,604 @@
+import React, { useState } from 'react';
+import { Book, Users, Home, FileText, LogOut, Plus, Edit2, Trash2, Search, BookOpen, BookCheck } from 'lucide-react';
+
+const LibraryManagementSystem = () => {
+  const [activeScreen, setActiveScreen] = useState('dashboard');
+  const [theme, setTheme] = useState('light');
+  const [showDialog, setShowDialog] = useState(false);
+  const [dialogType, setDialogType] = useState('');
+  const [selectedItem, setSelectedItem] = useState(null);
+
+  // Sample data
+  const [books] = useState([
+    { id: 'B001', title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', category: 'Fiction', totalCopies: 5, available: 3 },
+    { id: 'B002', title: 'To Kill a Mockingbird', author: 'Harper Lee', category: 'Fiction', totalCopies: 4, available: 2 },
+    { id: 'B003', title: 'Data Structures', author: 'Robert Lafore', category: 'Computer Science', totalCopies: 8, available: 5 },
+    { id: 'B004', title: '1984', author: 'George Orwell', category: 'Fiction', totalCopies: 6, available: 6 },
+  ]);
+
+  const [members] = useState([
+    { id: 'M001', name: 'John Doe', contact: 'john@email.com', phone: '123-456-7890', booksIssued: 2 },
+    { id: 'M002', name: 'Jane Smith', contact: 'jane@email.com', phone: '098-765-4321', booksIssued: 1 },
+    { id: 'M003', name: 'Bob Johnson', contact: 'bob@email.com', phone: '555-123-4567', booksIssued: 0 },
+  ]);
+
+  const [issuedBooks] = useState([
+    { issueId: 'I001', bookId: 'B001', bookTitle: 'The Great Gatsby', memberId: 'M001', memberName: 'John Doe', issueDate: '2025-01-15', dueDate: '2025-01-29' },
+    { issueId: 'I002', bookId: 'B002', bookTitle: 'To Kill a Mockingbird', memberId: 'M002', memberName: 'Jane Smith', issueDate: '2025-01-10', dueDate: '2025-01-24' },
+  ]);
+
+  const totalBooks = books.reduce((sum, book) => sum + book.totalCopies, 0);
+  const availableBooks = books.reduce((sum, book) => sum + book.available, 0);
+  const issuedCount = totalBooks - availableBooks;
+  const totalMembers = members.length;
+
+  const bgColor = theme === 'light' ? 'bg-gray-50' : 'bg-gray-900';
+  const cardBg = theme === 'light' ? 'bg-white' : 'bg-gray-800';
+  const textColor = theme === 'light' ? 'text-gray-900' : 'text-gray-100';
+  const textSecondary = theme === 'light' ? 'text-gray-600' : 'text-gray-400';
+  const borderColor = theme === 'light' ? 'border-gray-200' : 'border-gray-700';
+  const hoverBg = theme === 'light' ? 'hover:bg-gray-50' : 'hover:bg-gray-700';
+
+  const openDialog = (type, item = null) => {
+    setDialogType(type);
+    setSelectedItem(item);
+    setShowDialog(true);
+  };
+
+  const closeDialog = () => {
+    setShowDialog(false);
+    setDialogType('');
+    setSelectedItem(null);
+  };
+
+  const StatCard = ({ icon: Icon, title, value, color }) => (
+    <div className={`${cardBg} rounded-lg shadow-md p-6 border ${borderColor}`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className={`text-sm ${textSecondary} mb-1`}>{title}</p>
+          <p className={`text-3xl font-bold ${textColor}`}>{value}</p>
+        </div>
+        <div className={`${color} p-4 rounded-full`}>
+          <Icon className="w-8 h-8 text-white" />
+        </div>
+      </div>
+    </div>
+  );
+
+  const DashboardScreen = () => (
+    <div className="p-6">
+      <h1 className={`text-3xl font-bold ${textColor} mb-8`}>Dashboard</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard icon={Book} title="Total Books" value={totalBooks} color="bg-blue-500" />
+        <StatCard icon={BookOpen} title="Available Books" value={availableBooks} color="bg-green-500" />
+        <StatCard icon={BookCheck} title="Issued Books" value={issuedCount} color="bg-orange-500" />
+        <StatCard icon={Users} title="Total Members" value={totalMembers} color="bg-purple-500" />
+      </div>
+    </div>
+  );
+
+  const BooksScreen = () => (
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className={`text-3xl font-bold ${textColor}`}>Books Management</h1>
+        <div className="flex gap-3">
+          <button className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+            <Search className="w-4 h-4" />
+            Search
+          </button>
+          <button 
+            onClick={() => openDialog('addBook')}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          >
+            <Plus className="w-4 h-4" />
+            Add Book
+          </button>
+        </div>
+      </div>
+      <div className={`${cardBg} rounded-lg shadow-md overflow-hidden border ${borderColor}`}>
+        <table className="w-full">
+          <thead className="bg-gray-100 dark:bg-gray-700">
+            <tr>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Book ID</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Title</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Author</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Category</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Available</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            {books.map((book) => (
+              <tr key={book.id} className={hoverBg}>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${textColor}`}>{book.id}</td>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${textColor}`}>{book.title}</td>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${textColor}`}>{book.author}</td>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${textColor}`}>{book.category}</td>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${textColor}`}>{book.available}/{book.totalCopies}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <button 
+                    onClick={() => openDialog('editBook', book)}
+                    className="text-blue-500 hover:text-blue-700 mr-3"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => openDialog('deleteBook', book)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const MembersScreen = () => (
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className={`text-3xl font-bold ${textColor}`}>Members Management</h1>
+        <div className="flex gap-3">
+          <button className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+            <Search className="w-4 h-4" />
+            Search
+          </button>
+          <button 
+            onClick={() => openDialog('addMember')}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          >
+            <Plus className="w-4 h-4" />
+            Add Member
+          </button>
+        </div>
+      </div>
+      <div className={`${cardBg} rounded-lg shadow-md overflow-hidden border ${borderColor}`}>
+        <table className="w-full">
+          <thead className="bg-gray-100 dark:bg-gray-700">
+            <tr>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Member ID</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Name</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Email</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Phone</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Books Issued</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            {members.map((member) => (
+              <tr key={member.id} className={hoverBg}>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${textColor}`}>{member.id}</td>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${textColor}`}>{member.name}</td>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${textColor}`}>{member.contact}</td>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${textColor}`}>{member.phone}</td>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${textColor}`}>{member.booksIssued}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <button 
+                    onClick={() => openDialog('editMember', member)}
+                    className="text-blue-500 hover:text-blue-700 mr-3"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => openDialog('deleteMember', member)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const IssueBookScreen = () => (
+    <div className="p-6">
+      <h1 className={`text-3xl font-bold ${textColor} mb-6`}>Issue Book</h1>
+      <div className={`${cardBg} rounded-lg shadow-md p-6 max-w-2xl border ${borderColor}`}>
+        <div className="space-y-4">
+          <div>
+            <label className={`block text-sm font-medium ${textColor} mb-2`}>Select Book</label>
+            <select className={`w-full px-4 py-2 border ${borderColor} rounded-lg ${cardBg} ${textColor}`}>
+              <option value="">Choose a book...</option>
+              {books.filter(b => b.available > 0).map(book => (
+                <option key={book.id} value={book.id}>
+                  {book.title} - {book.author} (Available: {book.available})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={`block text-sm font-medium ${textColor} mb-2`}>Select Member</label>
+            <select className={`w-full px-4 py-2 border ${borderColor} rounded-lg ${cardBg} ${textColor}`}>
+              <option value="">Choose a member...</option>
+              {members.map(member => (
+                <option key={member.id} value={member.id}>
+                  {member.name} - {member.id} (Issued: {member.booksIssued})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={`block text-sm font-medium ${textColor} mb-2`}>Issue Date</label>
+            <input 
+              type="date" 
+              className={`w-full px-4 py-2 border ${borderColor} rounded-lg ${cardBg} ${textColor}`}
+              defaultValue="2025-12-28"
+            />
+          </div>
+          <div>
+            <label className={`block text-sm font-medium ${textColor} mb-2`}>Due Date</label>
+            <input 
+              type="date" 
+              className={`w-full px-4 py-2 border ${borderColor} rounded-lg ${cardBg} ${textColor}`}
+            />
+          </div>
+          <button 
+            onClick={() => openDialog('confirmIssue')}
+            className="w-full mt-6 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium"
+          >
+            Issue Book
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const ReturnBookScreen = () => (
+    <div className="p-6">
+      <h1 className={`text-3xl font-bold ${textColor} mb-6`}>Return Book</h1>
+      <div className={`${cardBg} rounded-lg shadow-md overflow-hidden border ${borderColor}`}>
+        <table className="w-full">
+          <thead className="bg-gray-100 dark:bg-gray-700">
+            <tr>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Issue ID</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Book Title</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Member Name</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Issue Date</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Due Date</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            {issuedBooks.map((issue) => (
+              <tr key={issue.issueId} className={hoverBg}>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${textColor}`}>{issue.issueId}</td>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${textColor}`}>{issue.bookTitle}</td>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${textColor}`}>{issue.memberName}</td>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${textColor}`}>{issue.issueDate}</td>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${textColor}`}>{issue.dueDate}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <button 
+                    onClick={() => openDialog('confirmReturn', issue)}
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                  >
+                    Return
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const ReportsScreen = () => (
+    <div className="p-6">
+      <h1 className={`text-3xl font-bold ${textColor} mb-6`}>Reports</h1>
+      <div className="space-y-6">
+        <div className={`${cardBg} rounded-lg shadow-md p-6 border ${borderColor}`}>
+          <h2 className={`text-xl font-semibold ${textColor} mb-4`}>Issued Books Report</h2>
+          <p className={`${textSecondary} mb-4`}>Total Issued Books: {issuedCount}</p>
+          <div className="overflow-auto">
+            <table className="w-full">
+              <thead className="bg-gray-100 dark:bg-gray-700">
+                <tr>
+                  <th className={`px-4 py-2 text-left text-xs font-medium ${textSecondary} uppercase`}>Book</th>
+                  <th className={`px-4 py-2 text-left text-xs font-medium ${textSecondary} uppercase`}>Member</th>
+                  <th className={`px-4 py-2 text-left text-xs font-medium ${textSecondary} uppercase`}>Issue Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {issuedBooks.map((issue, idx) => (
+                  <tr key={idx} className={`border-b ${borderColor}`}>
+                    <td className={`px-4 py-2 text-sm ${textColor}`}>{issue.bookTitle}</td>
+                    <td className={`px-4 py-2 text-sm ${textColor}`}>{issue.memberName}</td>
+                    <td className={`px-4 py-2 text-sm ${textColor}`}>{issue.issueDate}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className={`${cardBg} rounded-lg shadow-md p-6 border ${borderColor}`}>
+          <h2 className={`text-xl font-semibold ${textColor} mb-4`}>Available Books Report</h2>
+          <p className={`${textSecondary} mb-4`}>Total Available: {availableBooks}</p>
+          <div className="overflow-auto">
+            <table className="w-full">
+              <thead className="bg-gray-100 dark:bg-gray-700">
+                <tr>
+                  <th className={`px-4 py-2 text-left text-xs font-medium ${textSecondary} uppercase`}>Title</th>
+                  <th className={`px-4 py-2 text-left text-xs font-medium ${textSecondary} uppercase`}>Author</th>
+                  <th className={`px-4 py-2 text-left text-xs font-medium ${textSecondary} uppercase`}>Available</th>
+                </tr>
+              </thead>
+              <tbody>
+                {books.filter(b => b.available > 0).map((book, idx) => (
+                  <tr key={idx} className={`border-b ${borderColor}`}>
+                    <td className={`px-4 py-2 text-sm ${textColor}`}>{book.title}</td>
+                    <td className={`px-4 py-2 text-sm ${textColor}`}>{book.author}</td>
+                    <td className={`px-4 py-2 text-sm ${textColor}`}>{book.available}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const Dialog = () => {
+    if (!showDialog) return null;
+
+    const getDialogContent = () => {
+      switch (dialogType) {
+        case 'addBook':
+        case 'editBook':
+          return (
+            <div className="space-y-4">
+              <h2 className={`text-2xl font-bold ${textColor} mb-4`}>
+                {dialogType === 'addBook' ? 'Add New Book' : 'Edit Book'}
+              </h2>
+              <input 
+                type="text" 
+                placeholder="Book ID" 
+                defaultValue={selectedItem?.id || ''}
+                className={`w-full px-4 py-2 border ${borderColor} rounded-lg ${cardBg} ${textColor}`}
+              />
+              <input 
+                type="text" 
+                placeholder="Title" 
+                defaultValue={selectedItem?.title || ''}
+                className={`w-full px-4 py-2 border ${borderColor} rounded-lg ${cardBg} ${textColor}`}
+              />
+              <input 
+                type="text" 
+                placeholder="Author" 
+                defaultValue={selectedItem?.author || ''}
+                className={`w-full px-4 py-2 border ${borderColor} rounded-lg ${cardBg} ${textColor}`}
+              />
+              <input 
+                type="text" 
+                placeholder="Category" 
+                defaultValue={selectedItem?.category || ''}
+                className={`w-full px-4 py-2 border ${borderColor} rounded-lg ${cardBg} ${textColor}`}
+              />
+              <input 
+                type="number" 
+                placeholder="Total Copies" 
+                defaultValue={selectedItem?.totalCopies || ''}
+                className={`w-full px-4 py-2 border ${borderColor} rounded-lg ${cardBg} ${textColor}`}
+              />
+              <div className="flex gap-3 mt-6">
+                <button 
+                  onClick={closeDialog}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={closeDialog}
+                  className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                >
+                  {dialogType === 'addBook' ? 'Add' : 'Update'}
+                </button>
+              </div>
+            </div>
+          );
+
+        case 'addMember':
+        case 'editMember':
+          return (
+            <div className="space-y-4">
+              <h2 className={`text-2xl font-bold ${textColor} mb-4`}>
+                {dialogType === 'addMember' ? 'Add New Member' : 'Edit Member'}
+              </h2>
+              <input 
+                type="text" 
+                placeholder="Member ID" 
+                defaultValue={selectedItem?.id || ''}
+                className={`w-full px-4 py-2 border ${borderColor} rounded-lg ${cardBg} ${textColor}`}
+              />
+              <input 
+                type="text" 
+                placeholder="Name" 
+                defaultValue={selectedItem?.name || ''}
+                className={`w-full px-4 py-2 border ${borderColor} rounded-lg ${cardBg} ${textColor}`}
+              />
+              <input 
+                type="email" 
+                placeholder="Email" 
+                defaultValue={selectedItem?.contact || ''}
+                className={`w-full px-4 py-2 border ${borderColor} rounded-lg ${cardBg} ${textColor}`}
+              />
+              <input 
+                type="tel" 
+                placeholder="Phone" 
+                defaultValue={selectedItem?.phone || ''}
+                className={`w-full px-4 py-2 border ${borderColor} rounded-lg ${cardBg} ${textColor}`}
+              />
+              <div className="flex gap-3 mt-6">
+                <button 
+                  onClick={closeDialog}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={closeDialog}
+                  className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                >
+                  {dialogType === 'addMember' ? 'Add' : 'Update'}
+                </button>
+              </div>
+            </div>
+          );
+
+        case 'deleteBook':
+        case 'deleteMember':
+          return (
+            <div className="space-y-4">
+              <h2 className={`text-2xl font-bold ${textColor} mb-4`}>Confirm Deletion</h2>
+              <p className={`${textColor}`}>
+                Are you sure you want to delete {dialogType === 'deleteBook' ? 'this book' : 'this member'}?
+              </p>
+              <p className={`text-sm ${textSecondary}`}>
+                {dialogType === 'deleteBook' 
+                  ? `Book: ${selectedItem?.title}` 
+                  : `Member: ${selectedItem?.name}`}
+              </p>
+              <div className="flex gap-3 mt-6">
+                <button 
+                  onClick={closeDialog}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={closeDialog}
+                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          );
+
+        case 'confirmIssue':
+          return (
+            <div className="space-y-4">
+              <h2 className={`text-2xl font-bold text-green-600 mb-4`}>Success!</h2>
+              <p className={`${textColor}`}>Book issued successfully!</p>
+              <button 
+                onClick={closeDialog}
+                className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              >
+                OK
+              </button>
+            </div>
+          );
+
+        case 'confirmReturn':
+          return (
+            <div className="space-y-4">
+              <h2 className={`text-2xl font-bold ${textColor} mb-4`}>Confirm Return</h2>
+              <p className={`${textColor}`}>
+                Are you sure you want to return this book?
+              </p>
+              <p className={`text-sm ${textSecondary}`}>
+                Book: {selectedItem?.bookTitle}<br />
+                Member: {selectedItem?.memberName}
+              </p>
+              <div className="flex gap-3 mt-6">
+                <button 
+                  onClick={closeDialog}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={closeDialog}
+                  className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                >
+                  Confirm Return
+                </button>
+              </div>
+            </div>
+          );
+
+        default:
+          return null;
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className={`${cardBg} rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl`}>
+          {getDialogContent()}
+        </div>
+      </div>
+    );
+  };
+
+  const NavButton = ({ icon: Icon, label, screen }) => (
+    <button
+      onClick={() => setActiveScreen(screen)}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+        activeScreen === screen
+          ? 'bg-blue-500 text-white'
+          : `${textColor} ${hoverBg}`
+      }`}
+    >
+      <Icon className="w-5 h-5" />
+      <span className="font-medium">{label}</span>
+    </button>
+  );
+
+  return (
+    <div className={`flex h-screen ${bgColor} ${textColor}`}>
+      <div className={`w-64 ${cardBg} border-r ${borderColor} flex flex-col`}>
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <h1 className="text-2xl font-bold text-blue-500">LibraryMS</h1>
+          <p className={`text-sm ${textSecondary} mt-1`}>Management System</p>
+        </div>
+
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          <NavButton icon={Home} label="Dashboard" screen="dashboard" />
+          <NavButton icon={Book} label="Books" screen="books" />
+          <NavButton icon={Users} label="Members" screen="members" />
+          <NavButton icon={BookOpen} label="Issue Book" screen="issue" />
+          <NavButton icon={BookCheck} label="Return Book" screen="return" />
+          <NavButton icon={FileText} label="Reports" screen="reports" />
+        </nav>
+
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg ${hoverBg} ${textColor}`}
+          >
+            {theme === 'light' ? '🌙' : '☀️'}
+            <span>Toggle Theme</span>
+          </button>
+          <button
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg ${hoverBg} ${textColor} mt-2`}
+          >
+            <LogOut className="w-5 h-5" />
+            <span>Exit</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {activeScreen === 'dashboard' && <DashboardScreen />}
+        {activeScreen === 'books' && <BooksScreen />}
+        {activeScreen === 'members' && <MembersScreen />}
+        {activeScreen === 'issue' && <IssueBookScreen />}
+        {activeScreen === 'return' && <ReturnBookScreen />}
+        {activeScreen === 'reports' && <ReportsScreen />}
+      </div>
+
+      <Dialog />
+    </div>
+  );
+};
+
+export default LibraryManagementSystem;
