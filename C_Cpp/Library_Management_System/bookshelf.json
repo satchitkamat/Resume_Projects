@@ -1,0 +1,388 @@
+{
+    "books": [
+        {
+            "author": "Robert C. Martin",
+            "available": 1,
+            "category": "Programming",
+            "id": 1,
+            "quantity": 10,
+            "title": "Clean Code"
+        },
+        {
+            "author": "Thomas H. Cormen",
+            "available": 5,
+            "category": "Programming",
+            "id": 2,
+            "quantity": 10,
+            "title": "Introduction to Algorithms"
+        },
+        {
+            "author": "Reema Thareja",
+            "available": 10,
+            "category": "Programming",
+            "id": 3,
+            "quantity": 10,
+            "title": "Data Structures Using C++"
+        },
+        {
+            "author": "Yashavant Kanetkar",
+            "available": 10,
+            "category": "Programming",
+            "id": 4,
+            "quantity": 10,
+            "title": "Let Us C++"
+        },
+        {
+            "author": "Silberschatz",
+            "available": 5,
+            "category": "CS Core",
+            "id": 5,
+            "quantity": 10,
+            "title": "Operating System Concepts"
+        },
+        {
+            "author": "Andrew S. Tanenbaum",
+            "available": 10,
+            "category": "CS Core",
+            "id": 6,
+            "quantity": 10,
+            "title": "Computer Networks"
+        },
+        {
+            "author": "Korth",
+            "available": 10,
+            "category": "CS Core",
+            "id": 7,
+            "quantity": 10,
+            "title": "Database System Concepts"
+        },
+        {
+            "author": "Stuart Russell",
+            "available": 5,
+            "category": "AI",
+            "id": 8,
+            "quantity": 10,
+            "title": "Artificial Intelligence"
+        },
+        {
+            "author": "Tom Mitchell",
+            "available": 10,
+            "category": "AI",
+            "id": 9,
+            "quantity": 10,
+            "title": "Machine Learning"
+        },
+        {
+            "author": "James Clear",
+            "available": 10,
+            "category": "Self Help",
+            "id": 10,
+            "quantity": 10,
+            "title": "Atomic Habits"
+        },
+        {
+            "author": "Napoleon Hill",
+            "available": 10,
+            "category": "Self Help",
+            "id": 11,
+            "quantity": 10,
+            "title": "Think and Grow Rich"
+        },
+        {
+            "author": "Paulo Coelho",
+            "available": 5,
+            "category": "Fiction",
+            "id": 12,
+            "quantity": 10,
+            "title": "The Alchemist"
+        },
+        {
+            "author": "Robert Kiyosaki",
+            "available": 10,
+            "category": "Finance",
+            "id": 13,
+            "quantity": 10,
+            "title": "Rich Dad Poor Dad"
+        },
+        {
+            "author": "Morgan Housel",
+            "available": 10,
+            "category": "Finance",
+            "id": 14,
+            "quantity": 10,
+            "title": "Psychology of Money"
+        },
+        {
+            "author": "Hector Garcia",
+            "available": 5,
+            "category": "Self Help",
+            "id": 15,
+            "quantity": 10,
+            "title": "Ikigai"
+        },
+        {
+            "author": "Cal Newport",
+            "available": 10,
+            "category": "Productivity",
+            "id": 16,
+            "quantity": 10,
+            "title": "Deep Work"
+        },
+        {
+            "author": "Charles Duhigg",
+            "available": 10,
+            "category": "Psychology",
+            "id": 17,
+            "quantity": 10,
+            "title": "The Power of Habit"
+        },
+        {
+            "author": "Peter Thiel",
+            "available": 5,
+            "category": "Startup",
+            "id": 18,
+            "quantity": 10,
+            "title": "Zero to One"
+        },
+        {
+            "author": "Eric Ries",
+            "available": 10,
+            "category": "Startup",
+            "id": 19,
+            "quantity": 10,
+            "title": "The Lean Startup"
+        },
+        {
+            "author": "J.K. Rowling",
+            "available": 10,
+            "category": "Fantasy",
+            "id": 20,
+            "quantity": 10,
+            "title": "Harry Potter and the Sorcerer's Stone"
+        },
+        {
+            "author": "J.K. Rowling",
+            "available": 5,
+            "category": "Fantasy",
+            "id": 21,
+            "quantity": 10,
+            "title": "Harry Potter and the Chamber of Secrets"
+        },
+        {
+            "author": "J.R.R. Tolkien",
+            "available": 10,
+            "category": "Fantasy",
+            "id": 22,
+            "quantity": 10,
+            "title": "The Hobbit"
+        },
+        {
+            "author": "J.R.R. Tolkien",
+            "available": 10,
+            "category": "Fantasy",
+            "id": 23,
+            "quantity": 10,
+            "title": "Lord of the Rings"
+        },
+        {
+            "author": "George R.R. Martin",
+            "available": 5,
+            "category": "Fantasy",
+            "id": 24,
+            "quantity": 10,
+            "title": "Game of Thrones"
+        },
+        {
+            "author": "Rick Riordan",
+            "available": 10,
+            "category": "Fantasy",
+            "id": 25,
+            "quantity": 10,
+            "title": "Percy Jackson"
+        },
+        {
+            "author": "C.S. Lewis",
+            "available": 10,
+            "category": "Fantasy",
+            "id": 26,
+            "quantity": 10,
+            "title": "The Chronicles of Narnia"
+        },
+        {
+            "author": "Arthur Conan Doyle",
+            "available": 10,
+            "category": "Mystery",
+            "id": 27,
+            "quantity": 10,
+            "title": "Sherlock Holmes"
+        },
+        {
+            "author": "Dan Brown",
+            "available": 5,
+            "category": "Thriller",
+            "id": 28,
+            "quantity": 10,
+            "title": "The Da Vinci Code"
+        },
+        {
+            "author": "Dan Brown",
+            "available": 10,
+            "category": "Thriller",
+            "id": 29,
+            "quantity": 10,
+            "title": "Angels and Demons"
+        },
+        {
+            "author": "A.P.J Abdul Kalam",
+            "available": 10,
+            "category": "Biography",
+            "id": 30,
+            "quantity": 10,
+            "title": "Wings of Fire"
+        },
+        {
+            "author": "Walter Isaacson",
+            "available": 5,
+            "category": "Biography",
+            "id": 31,
+            "quantity": 10,
+            "title": "Steve Jobs"
+        },
+        {
+            "author": "Ashlee Vance",
+            "available": 10,
+            "category": "Biography",
+            "id": 32,
+            "quantity": 10,
+            "title": "Elon Musk"
+        },
+        {
+            "author": "Nelson Mandela",
+            "available": 5,
+            "category": "Biography",
+            "id": 33,
+            "quantity": 10,
+            "title": "Long Walk to Freedom"
+        },
+        {
+            "author": "Anne Frank",
+            "available": 10,
+            "category": "Biography",
+            "id": 34,
+            "quantity": 10,
+            "title": "The Diary of a Young Girl"
+        },
+        {
+            "author": "Michelle Obama",
+            "available": 10,
+            "category": "Biography",
+            "id": 35,
+            "quantity": 10,
+            "title": "Becoming"
+        },
+        {
+            "author": "Tara Westover",
+            "available": 5,
+            "category": "Biography",
+            "id": 36,
+            "quantity": 10,
+            "title": "Educated"
+        },
+        {
+            "author": "Yuval Noah Harari",
+            "available": 10,
+            "category": "History",
+            "id": 37,
+            "quantity": 10,
+            "title": "Sapiens"
+        },
+        {
+            "author": "Yuval Noah Harari",
+            "available": 10,
+            "category": "History",
+            "id": 38,
+            "quantity": 10,
+            "title": "Homo Deus"
+        },
+        {
+            "author": "Jared Diamond",
+            "available": 10,
+            "category": "History",
+            "id": 39,
+            "quantity": 10,
+            "title": "Guns, Germs and Steel"
+        },
+        {
+            "author": "M. Laxmikanth",
+            "available": 10,
+            "category": "Civics",
+            "id": 40,
+            "quantity": 10,
+            "title": "Indian Polity"
+        },
+        {
+            "author": "Ramesh Singh",
+            "available": 5,
+            "category": "Economics",
+            "id": 41,
+            "quantity": 10,
+            "title": "Indian Economy"
+        },
+        {
+            "author": "NCERT",
+            "available": 10,
+            "category": "Economics",
+            "id": 42,
+            "quantity": 10,
+            "title": "NCERT Economics Class 12"
+        },
+        {
+            "author": "T.S. Grewal",
+            "available": 5,
+            "category": "Commerce",
+            "id": 43,
+            "quantity": 10,
+            "title": "Accountancy Class 12"
+        },
+        {
+            "author": "Pindyck",
+            "available": 10,
+            "category": "Economics",
+            "id": 44,
+            "quantity": 10,
+            "title": "Microeconomics"
+        },
+        {
+            "author": "Dornbusch",
+            "available": 10,
+            "category": "Economics",
+            "id": 45,
+            "quantity": 10,
+            "title": "Macroeconomics"
+        },
+        {
+            "author": "Koontz",
+            "available": 10,
+            "category": "Management",
+            "id": 46,
+            "quantity": 10,
+            "title": "Principles of Management"
+        },
+        {
+            "author": "Philip Kotler",
+            "available": 5,
+            "category": "Management",
+            "id": 47,
+            "quantity": 10,
+            "title": "Marketing Management"
+        },
+        {
+            "author": "Weygandt",
+            "available": 10,
+            "category": "Accounting",
+            "id": 48,
+            "quantity": 10,
+            "title": "Financial Accounting"
+        }
+    ]
+}
