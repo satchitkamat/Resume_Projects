@@ -7,6 +7,9 @@
 #include <string>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <stack>
+
+
 // Book table column X offsets (relative to content start)
 constexpr float COL_ID        = 30.0f;
 constexpr float COL_TITLE     = 200.0f;
@@ -26,6 +29,8 @@ constexpr float CATEGORY_WIDTH = 200.0f;
 
 using namespace std;
 using json = nlohmann::json;
+std::stack<json> undoStack;
+std::stack<json> redoStack;
 
 //screen dimension
 int screenWidth = 1200;
@@ -62,30 +67,33 @@ Color textsecondary;
 Color borderbg;
 
 //icons images
-Texture2D homeicon, bookicon, book1icon, book2icon, membersicon, reporticon, sunicon, moonicon, exiticon, searchicon, editicon, deleteicon;
+Texture2D homeicon, bookicon, book1icon, book2icon, membersicon, sunicon, moonicon, exiticon, editicon, deleteicon, undoicon, redoicon, downarrowicon, uparrowicon;
 
 //Navigation Bar
-Rectangle navbar, dashboardtext, booktext, memberstext, issuebooktext, returnbooktext, reporttext, themetext, exittext;
+Rectangle navbar, dashboardtext, booktext, memberstext, themetext, exittext;
 
-//Dashboard 
-Rectangle totalbooksbg, totalmembersbg, issuebookbg, availabebookbg;
-
-//Books 
+//Global 
 Rectangle listItem;
 Rectangle addbookcard;
 Rectangle cancelbtncard;
 Rectangle submitbtncard;
 Rectangle addbtncard;
 
+//Dashboard 
+Rectangle totalbooksbg, totalmembersbg, issuebookbg, availablebookbg;
+
 //Required Variables
 bool dashboardActive = false;
 bool bookActive = true;
 bool membersActive = false;
-bool issuebookActive = false;
-bool returnbookActive = false;
-bool reportActive = false;
 bool editBook = false;
+bool dropdownactive = false;
 int bookIndex = 0;
+float scrollOffsetY = 0.0f;
+float scrollVelocityY = 0.0f;
+
+float scrollOffsetX = 0.0f;
+float scrollVelocityX = 0.0f;
 
 //Adding book var
 bool addingbook = false;
@@ -143,26 +151,30 @@ void seticons(){
     Image book1image   = LoadImage("images/icons/book1.png");
     Image book2image   = LoadImage("images/icons/book2.png");
     Image membersimage = LoadImage("images/icons/members.png");
-    Image reportimage  = LoadImage("images/icons/report.png");
     Image sunimage     = LoadImage("images/icons/sun.png");
     Image moonimage    = LoadImage("images/icons/moon.png");
     Image exitimage    = LoadImage("images/icons/exit.png");
-    Image searchimage    = LoadImage("images/icons/search.png");
     Image editimage    = LoadImage("images/icons/edit.png");
     Image deleteimage    = LoadImage("images/icons/delete.png");
+    Image undoimage    = LoadImage("images/icons/undo.png");
+    Image redoimage    = LoadImage("images/icons/redo.png");
+    Image downarrowimage    = LoadImage("images/icons/downarrow.png");
+    Image uparrowimage    = LoadImage("images/icons/uparrow.png");
     
     homeicon    = LoadTextureFromImage(homeimage);
     bookicon    = LoadTextureFromImage(bookimage);
     book1icon   = LoadTextureFromImage(book1image);
     book2icon   = LoadTextureFromImage(book2image);
     membersicon = LoadTextureFromImage(membersimage);
-    reporticon  = LoadTextureFromImage(reportimage);
     sunicon     = LoadTextureFromImage(sunimage);
     moonicon    = LoadTextureFromImage(moonimage);
     exiticon    = LoadTextureFromImage(exitimage);
-    searchicon    = LoadTextureFromImage(searchimage);
     editicon    = LoadTextureFromImage(editimage);
     deleteicon    = LoadTextureFromImage(deleteimage);
+    undoicon    = LoadTextureFromImage(undoimage);
+    redoicon    = LoadTextureFromImage(redoimage);
+    downarrowicon    = LoadTextureFromImage(downarrowimage);
+    uparrowicon    = LoadTextureFromImage(uparrowimage);
     
     
     UnloadImage(homeimage);
@@ -170,21 +182,51 @@ void seticons(){
     UnloadImage(book1image);
     UnloadImage(book2image);
     UnloadImage(membersimage);
-    UnloadImage(reportimage);
     UnloadImage(sunimage);
     UnloadImage(moonimage);
     UnloadImage(exitimage);
-    UnloadImage(searchimage);
     UnloadImage(editimage);
     UnloadImage(deleteimage);
+    UnloadImage(undoimage);
+    UnloadImage(redoimage);
+    UnloadImage(downarrowimage);
+    UnloadImage(uparrowimage);
 }
+void SaveUndoState(json& j) {
+    undoStack.push(j);   // save current state
+    while (!redoStack.empty())   // clear redo
+    redoStack.pop();
+}
+void Undo(json& j, const string& filename) {
+    if (undoStack.empty()) return;
+
+    redoStack.push(j);
+    j = undoStack.top();
+    undoStack.pop();
+
+    // save to file
+    ofstream file("bookshelf.json");
+    file << j.dump(4);
+}
+void Redo(json& j, const string& filename) {
+    if (redoStack.empty()) return;
+
+    undoStack.push(j);
+    j = redoStack.top();
+    redoStack.pop();
+
+    ofstream file("bookshelf.json");
+    file << j.dump(4);
+}
+
 struct InputText{
     string inputText;
     int cursorIndex = 0;
     float cursorTimer = 0.0f;
     bool cursorVisible = true;
     float backspaceHoldTime = 0.0f;
-}title,author,category,quantity,issued,edittitle,editauthor,editcategory,editquantity,editissued;
+}title,author,category,quantity,issued,edittitle,editauthor,editcategory,editquantity,editissued,
+memberid, membername, memberemail, membertype, memberbookissue;
 
 struct DefaultText{
     string defaultText;
@@ -192,7 +234,7 @@ struct DefaultText{
 
 struct InputBox{
     Rectangle rec;
-}titlecard,authorcard,categorycard,quantitycard,issuedcard;
+}titlebox,authorbox,categorybox,quantitybox,issuedbox;
 
 void useinput(Rectangle* inputbox, InputText& input, bool& active, DefaultText& defaulttext)
 {
@@ -227,13 +269,13 @@ void useinput(Rectangle* inputbox, InputText& input, bool& active, DefaultText& 
         int key = GetCharPressed();
         while (key > 0)
         {
-            if(inputbox == &quantitycard.rec || inputbox == &issuedcard.rec){
+            if(inputbox == &quantitybox.rec || inputbox == &issuedbox.rec){
                 if(key >= '0' && key <= '9'){
                     input.inputText.insert(input.inputText.begin() + input.cursorIndex, (char)key);
                     input.cursorIndex++;
                 }
             }
-            if(inputbox == &titlecard.rec || inputbox == &authorcard.rec || inputbox == &categorycard.rec){
+            if(inputbox == &titlebox.rec || inputbox == &authorbox.rec || inputbox == &categorybox.rec){
                 if (key >= 32 && key <= 125 && input.inputText.size() < maxChars){
                     input.inputText.insert(input.inputText.begin() + input.cursorIndex, (char)key);
                     input.cursorIndex++;
@@ -309,6 +351,97 @@ void useinput(Rectangle* inputbox, InputText& input, bool& active, DefaultText& 
     }
 }
 
+struct TableLayout {
+    float contentX;
+    float headerY;
+    float headerHeight;
+    float rowHeight;
+    float viewWidth;
+    float viewHeight;
+    float contentWidth;
+};
+
+struct TableScroll {
+    float offsetX = 0;
+    float offsetY = 0;
+    float velocityX = 0;
+    float velocityY = 0;
+};
+template<typename DrawHeaderFn, typename DrawRowFn>
+void DrawTable(
+    const TableLayout& layout,
+    int rowCount,
+    TableScroll& scroll,
+    DrawHeaderFn drawHeader,
+    DrawRowFn drawRow
+) {
+    float dt = GetFrameTime();
+
+    Rectangle listArea = {
+        layout.contentX,
+        layout.headerY + layout.headerHeight,
+        layout.viewWidth,
+        layout.viewHeight
+    };
+
+    // Scroll input
+    if (CheckCollisionPointRec(GetMousePosition(), listArea)) {
+        float wheel = GetMouseWheelMove();
+        if (IsKeyDown(KEY_LEFT_SHIFT))
+            scroll.velocityX += wheel * 140;
+        else
+            scroll.velocityY += wheel * 140;
+    }
+
+    // Smooth scrolling
+    scroll.offsetY += scroll.velocityY * dt;
+    scroll.velocityY *= 0.85f;
+    scroll.offsetX += scroll.velocityX * dt;
+    scroll.velocityX *= 0.85f;
+
+    // Clamp
+    float contentHeight = rowCount * layout.rowHeight;
+    float minScrollY = -(contentHeight - layout.viewHeight);
+    if (contentHeight <= layout.viewHeight) scroll.offsetY = 0;
+    if (scroll.offsetY > 0) scroll.offsetY = 0;
+    if (scroll.offsetY < minScrollY) scroll.offsetY = minScrollY;
+
+    float minScrollX = -(layout.contentWidth - layout.viewWidth);
+    if (layout.contentWidth <= layout.viewWidth) scroll.offsetX = 0;
+    if (scroll.offsetX > 0) scroll.offsetX = 0;
+    if (scroll.offsetX < minScrollX) scroll.offsetX = minScrollX;
+
+    // ----- Header -----
+    BeginScissorMode(
+        (int)layout.contentX,
+        (int)layout.headerY,
+        (int)layout.viewWidth,
+        (int)layout.headerHeight
+    );
+        drawHeader(layout.contentX + scroll.offsetX);
+    EndScissorMode();
+
+    // ----- Rows -----
+    BeginScissorMode(
+        (int)listArea.x,
+        (int)listArea.y,
+        (int)listArea.width,
+        (int)listArea.height
+    );
+
+    for (int i = 0; i < rowCount; i++) {
+        float y = layout.headerY + layout.headerHeight +
+                  scroll.offsetY + i * layout.rowHeight;
+
+        if (y + layout.rowHeight < listArea.y ||
+            y > listArea.y + listArea.height)
+            continue;
+
+        drawRow(i, layout.contentX + scroll.offsetX, y);
+    }
+
+    EndScissorMode();
+}
 
 class NavigationBar{
     private:
@@ -337,20 +470,8 @@ class NavigationBar{
             DrawRectangleRounded(memberstext, 0.25f, 15, membersActive ? activebg : cardbg);
             DrawTextureEx(membersicon, {memberstext.x + 9, memberstext.y + 9}, 0.0f, 0.60f, membersActive ? WHITE : textcolor);
             DrawText("Members", memberstext.x + 50, memberstext.y + 15, 25, membersActive ? WHITE : textcolor);                    
-            
-            DrawRectangleRounded(issuebooktext, 0.25f, 15, issuebookActive ? activebg : cardbg);
-            DrawTextureEx(book1icon, {issuebooktext.x + 9, issuebooktext.y + 9}, 0.0f, 0.60f, issuebookActive ? WHITE : textcolor);
-            DrawText("Issue Book", issuebooktext.x + 50, issuebooktext.y + 15, 25, issuebookActive ? WHITE : textcolor);
-            
-            DrawRectangleRounded(returnbooktext, 0.25f, 15, returnbookActive ? activebg : cardbg);
-            DrawTextureEx(book2icon, {returnbooktext.x + 9, returnbooktext.y + 9}, 0.0f, 0.60f, returnbookActive ? WHITE : textcolor);
-            DrawText("Return Book", returnbooktext.x + 50, returnbooktext.y + 15, 25, returnbookActive ? WHITE : textcolor);
-            
-            DrawRectangleRounded(reporttext, 0.25f, 15, reportActive ? activebg : cardbg);
-            DrawTextureEx(reporticon, {reporttext.x + 9, reporttext.y + 9}, 0.0f, 0.60f, reportActive ? WHITE : textcolor);
-            DrawText("Report", reporttext.x + 50, reporttext.y + 15, 25, reportActive ? WHITE : textcolor);
-            
-            DrawLine(0, reporttext.y + reporttext.height + 20, navbar.width, reporttext.y + reporttext.height + 20, borderbg);
+                        
+            DrawLine(0, memberstext.y + memberstext.height + 20, navbar.width, memberstext.y + memberstext.height + 20, borderbg);
             
             DrawRectangleRounded(themetext, 0.25f, 15, cardbg);
             DrawTextureEx(light ? moonicon : sunicon, {themetext.x + 9, themetext.y + 9}, 0.0f, 0.60f, textcolor);
@@ -364,17 +485,11 @@ class NavigationBar{
         
         void handleClick(){
             if(CheckCollisionPointRec(GetMousePosition(), dashboardtext) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-            dashboardActive = true, bookActive = false, membersActive = false, issuebookActive = false, returnbookActive = false, reportActive = false;
+            dashboardActive = true, bookActive = false, membersActive = false;
             if(CheckCollisionPointRec(GetMousePosition(), booktext) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-            dashboardActive = false, bookActive = true, membersActive = false, issuebookActive = false, returnbookActive = false, reportActive = false;
+            dashboardActive = false, bookActive = true, membersActive = false;
             if(CheckCollisionPointRec(GetMousePosition(), memberstext) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-            dashboardActive = false, bookActive = false, membersActive = true, issuebookActive = false, returnbookActive = false, reportActive = false;
-            if(CheckCollisionPointRec(GetMousePosition(), issuebooktext) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-            dashboardActive = false, bookActive = false, membersActive = false, issuebookActive = true, returnbookActive = false, reportActive = false;
-            if(CheckCollisionPointRec(GetMousePosition(), returnbooktext) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-            dashboardActive = false, bookActive = false, membersActive = false, issuebookActive = false, returnbookActive = true, reportActive = false;
-            if(CheckCollisionPointRec(GetMousePosition(), reporttext) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-            dashboardActive = false, bookActive = false, membersActive = false, issuebookActive = false, returnbookActive = false, reportActive = true;
+            dashboardActive = false, bookActive = false, membersActive = true;
             if(CheckCollisionPointRec(GetMousePosition(), themetext) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
             light = !light;
             if(CheckCollisionPointRec(GetMousePosition(), exittext)&& IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
@@ -384,19 +499,41 @@ class NavigationBar{
     
     class Dashboard {
         private:
-        int numberofbooks = 50;
-        int numberofmembers = 50;
-        int numberofissuebook = 50;
-        int numberofavailablebook = 50;
+        json bookshelf, memberslist;
+        int totalBooks = 0;
+        int totalIssuedBooks = 0;
+        int totalAvailableBooks = 0;
+
         public:
+        Dashboard(){
+            ifstream filebooks("bookshelf.json");
+            if (!filebooks.is_open()) {
+                cerr << "ERROR: Could not open bookshelf.json\n";
+                return;
+            }
+            filebooks >> bookshelf;
+            ifstream filemembers("members.json");
+            if (!filemembers.is_open()) {
+                cerr << "ERROR: Could not open members.json\n";
+                return;
+            }
+            filemembers >> memberslist;
+            for(int i = 0; i < bookshelf["books"].size(); i++){
+                totalIssuedBooks += bookshelf["books"][i]["quantity"].get<int>() - bookshelf["books"][i]["available"].get<int>();
+                totalAvailableBooks += bookshelf["books"][i]["available"].get<int>();
+                totalBooks += bookshelf["books"][i]["quantity"].get<int>();
+            } 
+        }
+
         void printDashboard(){
+            
             DrawText("Dashboard", screenWidth / 2, 50, 45 , textcolor);
             
             // ----- Total Books ----- //
             DrawRectangleRounded(totalbooksbg, 0.25f, 12,cardbg);
             DrawRectangleRoundedLines(totalbooksbg, 0.25f, 12, borderbg);
             DrawText("Total Books: ", totalbooksbg.x + 20, totalbooksbg.y + 15, 30, textsecondary);
-            DrawText(TextFormat("%d", numberofbooks), totalbooksbg.x + 40, totalbooksbg.y + 50, 40, textcolor);
+            DrawText(TextFormat("%d", totalBooks), totalbooksbg.x + 40, totalbooksbg.y + 50, 40, textcolor);
             DrawCircle(totalbooksbg.x + totalbooksbg.width - 40, totalbooksbg.y + 47, 30,BLUE);
             DrawTextureEx(bookicon, {totalbooksbg.x + totalbooksbg.width - 60, totalbooksbg.y + 27}, 0.0f, 0.80f, WHITE);
             
@@ -406,25 +543,25 @@ class NavigationBar{
             DrawRectangleRounded(issuebookbg, 0.25f, 12,cardbg);
             DrawRectangleRoundedLines(issuebookbg, 0.25f, 12, borderbg);
             DrawText("Issued Books: ", issuebookbg.x + 20, issuebookbg.y + 15, 30, textsecondary);
-            DrawText(TextFormat("%d", numberofissuebook), issuebookbg.x + 40, issuebookbg.y + 50, 40, textcolor);
+            DrawText(TextFormat("%d", totalIssuedBooks), issuebookbg.x + 40, issuebookbg.y + 50, 40, textcolor);
             DrawCircle(issuebookbg.x + issuebookbg.width - 40, issuebookbg.y + 47, 30,ORANGE);
             DrawTextureEx(book1icon, {issuebookbg.x + issuebookbg.width - 60, issuebookbg.y + 27}, 0.0f, 0.80f, WHITE);
             // ------------------------- //
             
             // ----- Avaliable Books ----- //
-            DrawRectangleRounded(availabebookbg, 0.25f, 12,cardbg);
-            DrawRectangleRoundedLines(availabebookbg, 0.25f, 12, borderbg);
-            DrawText("Available Books: ", availabebookbg.x + 20, availabebookbg.y + 15, 30, textsecondary);
-            DrawText(TextFormat("%d", numberofavailablebook), availabebookbg.x + 40, availabebookbg.y + 50, 40, textcolor);
-            DrawCircle(availabebookbg.x + availabebookbg.width - 40, availabebookbg.y + 47, 30,GREEN);
-            DrawTextureEx(book2icon, {availabebookbg.x + availabebookbg.width - 60, availabebookbg.y + 27}, 0.0f, 0.80f, WHITE);
+            DrawRectangleRounded(availablebookbg, 0.25f, 12,cardbg);
+            DrawRectangleRoundedLines(availablebookbg, 0.25f, 12, borderbg);
+            DrawText("Available Books: ", availablebookbg.x + 20, availablebookbg.y + 15, 30, textsecondary);
+            DrawText(TextFormat("%d", totalAvailableBooks), availablebookbg.x + 40, availablebookbg.y + 50, 40, textcolor);
+            DrawCircle(availablebookbg.x + availablebookbg.width - 40, availablebookbg.y + 47, 30,GREEN);
+            DrawTextureEx(book2icon, {availablebookbg.x + availablebookbg.width - 60, availablebookbg.y + 27}, 0.0f, 0.80f, WHITE);
             // --------------------------- //
             
             // ----- Total Memebers ----- //
             DrawRectangleRounded(totalmembersbg, 0.25f, 12,cardbg);
             DrawRectangleRoundedLines(totalmembersbg, 0.25f, 12, borderbg);
             DrawText("Total Members: ", totalmembersbg.x + 20, totalmembersbg.y + 15, 30, textsecondary);
-            DrawText(TextFormat("%d", numberofbooks), totalmembersbg.x + 40, totalmembersbg.y + 50, 40, textcolor);
+            DrawText(TextFormat("%d", memberslist["members"].size()), totalmembersbg.x + 40, totalmembersbg.y + 50, 40, textcolor);
             DrawCircle(totalmembersbg.x + totalmembersbg.width - 40, totalmembersbg.y + 47, 30,PURPLE);
             DrawTextureEx(membersicon, {totalmembersbg.x + totalmembersbg.width - 60, totalmembersbg.y + 27}, 0.0f, 0.80f, WHITE);
             // ------------------------- //
@@ -432,18 +569,16 @@ class NavigationBar{
         }
     };
     
-    
+
+    struct Dropdown{
+        bool open = false;
+    };
     
 class Book {
     private:
     json bookshelf;
-    
-    float scrollOffsetY = 0.0f;
-    float scrollVelocityY = 0.0f;
-    
-    float scrollOffsetX = 0.0f;
-    float scrollVelocityX = 0.0f;
-
+    TableScroll bookScroll;
+    vector<Dropdown> dropdowns;
     
     public:
     
@@ -454,6 +589,8 @@ class Book {
             return;
         }
         file >> bookshelf;
+
+        dropdowns.resize(bookshelf["books"].size());
     }
     void closeaddbook(){
         addingbook = false;
@@ -487,47 +624,32 @@ class Book {
         boxActiveQuantity = false;
         boxActiveIssued = false;
     }
-    void addbookdetails(const string& title,const string& author,const string& category, const string& quantityinput, const string& issue){
+    void add_edit_bookdetails(const string& title,const string& author,const string& category, const string& quantityinput, const string& issue, bool add){
         json item;
-        item["id"] = bookshelf["books"].size() + 1;
+        item["id"] =  (add ? bookshelf["books"].size() + 1 : bookIndex + 1);
         item["title"] = title;
         item["author"] = author;
         item["category"] = category;
         item["quantity"] = stoi(quantityinput);
         item["available"] = stoi(quantityinput) - stoi(issue);
 
-        bookshelf["books"].push_back(item);
+        if(add){
+            SaveUndoState(bookshelf);
+            bookshelf["books"].push_back(item);
+
+        }
+        else{
+            SaveUndoState(bookshelf);
+
+            bookshelf["books"].erase(bookshelf["books"].begin() + bookIndex); 
+            bookshelf["books"].insert(bookshelf["books"].begin() + bookIndex, item);
+        }
 
         ofstream file("bookshelf.json");
             file << bookshelf.dump(4);
             file.close();
-            
+
             closeaddbook();
-    }
-
-    void editbookdetails(const string& title,const string& author,const string& category, const string& quantityinput, const string& issue){     
-        string oldtitle = bookshelf["books"][bookIndex]["title"].get<string>();
-        string oldauthor = bookshelf["books"][bookIndex]["author"].get<string>();
-        string oldcategory = bookshelf["books"][bookIndex]["category"].get<string>();
-        int oldquantity = bookshelf["books"][bookIndex]["quantity"].get<int>();
-        int oldavailable = bookshelf["books"][bookIndex]["available"].get<int>();
-
-        json item;
-            item["id"] = bookIndex + 1;
-            item["title"] = (title.empty() ? oldtitle : title);
-            item["author"] = (author.empty() ? oldauthor : author);
-            item["category"] = (category.empty() ? oldcategory : category);
-            item["quantity"] = (quantityinput.empty() ? oldquantity : stoi(quantityinput));
-            item["available"] = (issue.empty() ? oldavailable : quantityinput.empty() ? oldquantity - stoi(issue) : stoi(quantityinput) - stoi(issue));
-
-        bookshelf["books"].erase(bookshelf["books"].begin() + bookIndex);
-
-        bookshelf["books"].insert(bookshelf["books"].begin() + bookIndex, item);
-        ofstream outFile("bookshelf.json");
-        outFile << bookshelf.dump(4); // pretty print
-        outFile.close();
-        
-        closeaddbook();
     }
 
     void add_edit_book(string check){
@@ -540,182 +662,122 @@ class Book {
         DrawRectangle(0,0,screenWidth,screenHeight, mainbg);
         DrawRectangleRounded(addbookcard,0.1f, 1,cardbg);
         DrawText((check == "add" ? "Add New Book" : "Edit Book"), (check == "add" ? addbookcard.x + (addbookcard.width / 5) : addbookcard.x + (addbookcard.width / 3)), addbookcard.y + 20, 35, textcolor);
-        DrawRectangleRoundedLines(titlecard.rec, 0.25f, 1,borderbg);
-        DrawRectangleRoundedLines(authorcard.rec, 0.25f, 1,borderbg);
-        DrawRectangleRoundedLines(categorycard.rec, 0.25f, 1,borderbg);
-        DrawRectangleRoundedLines(quantitycard.rec, 0.25f, 1,borderbg);
-        DrawRectangleRoundedLines(issuedcard.rec, 0.25f, 1,borderbg);
+        DrawRectangleRoundedLines(titlebox.rec, 0.25f, 1,borderbg);
+        DrawRectangleRoundedLines(authorbox.rec, 0.25f, 1,borderbg);
+        DrawRectangleRoundedLines(categorybox.rec, 0.25f, 1,borderbg);
+        DrawRectangleRoundedLines(quantitybox.rec, 0.25f, 1,borderbg);
+        DrawRectangleRoundedLines(issuedbox.rec, 0.25f, 1,borderbg);
         DrawRectangleRounded(cancelbtncard, 0.25f,12, textsecondarydark);
         DrawText("Cancel", cancelbtncard.x + 45, cancelbtncard.y + 15, 25, textcolordark);
             if(CheckCollisionPointRec(GetMousePosition(), cancelbtncard) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) closeaddbook();
         DrawRectangleRounded(submitbtncard, 0.25f, 12, activebg);
         DrawText("Submit", submitbtncard.x + 45, submitbtncard.y + 15, 25, textcolordark);
             if((CheckCollisionPointRec(GetMousePosition(), submitbtncard) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) && check == "add") 
-                addbookdetails(title.inputText,author.inputText,category.inputText,quantity.inputText,issued.inputText);
-            if((CheckCollisionPointRec(GetMousePosition(), submitbtncard) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) && check == "edit")
-                editbookdetails(edittitle.inputText,editauthor.inputText,editcategory.inputText,quantity.inputText,issued.inputText);
+                add_edit_bookdetails(title.inputText,author.inputText,category.inputText,quantity.inputText,issued.inputText, true);
+            if((CheckCollisionPointRec(GetMousePosition(), submitbtncard) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) && check == "edit"){
+                add_edit_bookdetails((edittitle.inputText.empty() ? defaulttitle.defaultText : edittitle.inputText),
+                                     (editauthor.inputText.empty() ? defaultauthor.defaultText : editauthor.inputText),
+                                     (editcategory.inputText.empty() ? defaultcategory.defaultText : editcategory.inputText),
+                                     (editquantity.inputText.empty() ? defaultquantity.defaultText : editquantity.inputText),
+                                     (editissued.inputText.empty() ? defaultissued.defaultText : editissued.inputText), 
+                                     false);
+            }
     }
-    
     void printBook() {
-        const float contentX = navbar.width + 20;
-        const float headerY = 100;
-        const float headerHeight = 50;
-        const float rowHeight = 50;
-        const float contentStartY = headerY + headerHeight;
-        const float viewWidth = screenWidth - contentX - 10;
-        const float viewHeight = screenHeight - contentStartY;
-        const float contentWidth = 1500;   // wider than screen (horizontal scroll)
-        
+        float contentX = navbar.width + 20;
+
+        TableLayout layout {
+            contentX,
+            100.0f,
+            50.0f,
+            50.0f,
+            (float)screenWidth - contentX - 10.0f,
+            (float)screenHeight - 150.0f,
+            1500.0f
+        };
+
+        // Heading
         DrawText("Books Management", contentX, 50, 45, textcolor);
-        // ----- Header ----- //
+        //ADdbtn
         DrawRectangleRounded(addbtncard, 0.25f, 12, activebg);
-        DrawText("+ Add Book", (float)screenWidth - 130, 60, 20, WHITE);
-        DrawRectangleRounded({(float)screenWidth - 280, 50, 120, 40}, 0.25f, 12, textsecondarydark);
-        DrawTextureEx(searchicon, {(float)screenWidth - 275, 57}, 0.0f, 0.50f, WHITE);
-        DrawText("Search", (float)screenWidth - 245, 60, 20, WHITE);
-        // ------------------ //
-        
-        Rectangle listArea = { contentX, contentStartY, viewWidth, viewHeight };
-        
-        float dt = GetFrameTime();
-        // Scroll input (only if mouse over rows, not header)
-        Rectangle scrollArea = listArea;
-        scrollArea.y += 0; // optional offset if you want header excluded
-        if (CheckCollisionPointRec(GetMousePosition(), scrollArea)) {
-            float wheel = GetMouseWheelMove();
-            if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT))
-                scrollVelocityX += wheel * 140;
-            else
-                scrollVelocityY += wheel * 140;
-        }
-        // Smooth scrolling
-        scrollOffsetY += scrollVelocityY * dt;
-        scrollVelocityY *= 0.85f;
-        scrollOffsetX += scrollVelocityX * dt;
-        scrollVelocityX *= 0.85f;
-        // Vertical clamp
-        float contentHeight = bookshelf["books"].size() * rowHeight;
-        float minScrollY = -(contentHeight - viewHeight);
-        if (contentHeight <= viewHeight) scrollOffsetY = 0;
-        if (scrollOffsetY > 0) scrollOffsetY = 0;
-        if (scrollOffsetY < minScrollY) scrollOffsetY = minScrollY;
-        // Horizontal clamp
-        float minScrollX = -(contentWidth - viewWidth);
-        if (contentWidth <= viewWidth) scrollOffsetX = 0;
-        if (scrollOffsetX > 0) scrollOffsetX = 0;
-        if (scrollOffsetX < minScrollX) scrollOffsetX = minScrollX;
+        DrawText("+ Add Book", (float)screenWidth - 130, 60, 20, WHITE); 
+        //undo icon
+        DrawRectangleRounded({(float)screenWidth - 250, 50, 40, 40}, 0.25f, 12, BLUE);
+        DrawTextureEx(undoicon, {(float)screenWidth - 250, 52}, 0.0f, 0.75f, WHITE); 
+        if((CheckCollisionPointRec(GetMousePosition(), {(float)screenWidth - 250, 50, 40, 40}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_Z))) Undo(bookshelf,"bookshelf.json");
+        //redo icon
+        DrawRectangleRounded({(float)screenWidth - 200, 50, 40, 40}, 0.25f, 12, RED);
+        DrawTextureEx(redoicon, {(float)screenWidth - 200, 52}, 0.0f, 0.75f, WHITE);
+        if((CheckCollisionPointRec(GetMousePosition(), {(float)screenWidth - 200, 50, 40, 40}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_Y))) Redo(bookshelf,"bookshelf.json");
 
-            // ---- Header: horizontal scroll, clipped ----
-        BeginScissorMode(
-            (int)roundf(contentX),
-            (int)roundf(headerY),
-            (int)roundf(viewWidth),
-            (int)roundf(headerHeight)
-        );
+        DrawTable(
+            layout,
+            bookshelf["books"].size(),
+            bookScroll,
 
-            float baseHeaderX = contentX + scrollOffsetX;
-            Rectangle header = { contentX, headerY, viewWidth, headerHeight }; 
-            DrawRectangleRounded(header, 0.25f, 1, textsecondary);
-            DrawText("Book Id",   baseHeaderX + COL_ID,        headerY + 15, 20, light ? textcolordark : textcolorlight);
-            DrawText("Title",     baseHeaderX + COL_TITLE,     headerY + 15, 20, light ? textcolordark : textcolorlight);
-            DrawText("Author",    baseHeaderX + COL_AUTHOR,    headerY + 15, 20, light ? textcolordark : textcolorlight);
-            DrawText("Category",  baseHeaderX + COL_CATEGORY,  headerY + 15, 20, light ? textcolordark : textcolorlight);
-            DrawText("Available", baseHeaderX + COL_AVAILABLE, headerY + 15, 20, light ? textcolordark : textcolorlight);
-            DrawText("Action",    baseHeaderX + COL_EDIT,      headerY + 15, 20, light ? textcolordark : textcolorlight);
+            // ----- HEADER -----
+            [&](float baseX) {
+                DrawRectangleRounded(
+                    {contentX, layout.headerY, layout.viewWidth, layout.headerHeight},
+                    0.25f, 1, textsecondary
+                );
 
+                DrawText("Book Id",   baseX + COL_ID,        layout.headerY + 15, 20, light ? textcolordark : textcolorlight);
+                DrawText("Title",     baseX + COL_TITLE,     layout.headerY + 15, 20, light ? textcolordark : textcolorlight);
+                DrawText("Author",    baseX + COL_AUTHOR,    layout.headerY + 15, 20, light ? textcolordark : textcolorlight);
+                DrawText("Category",  baseX + COL_CATEGORY,  layout.headerY + 15, 20, light ? textcolordark : textcolorlight);
+                DrawText("Available", baseX + COL_AVAILABLE, layout.headerY + 15, 20, light ? textcolordark : textcolorlight);
+                DrawText("Action",    baseX + COL_EDIT,      layout.headerY + 15, 20, light ? textcolordark : textcolorlight);
+            },
 
-        EndScissorMode();
-
-        // ---- Rows: vertical + horizontal scroll, clipped ----
-        BeginScissorMode(
-                (int)roundf(listArea.x),
-                (int)roundf(listArea.y),
-                (int)roundf(listArea.width),
-                (int)roundf(listArea.height)
-            );
-
-            for (int i = 0; i < bookshelf["books"].size(); i++) {
+            // ----- ROWS -----
+            [&](int i, float baseX, float y) {
                 json& item = bookshelf["books"][i];
+                Dropdown& dropdown = dropdowns[i];
 
-                float y = contentStartY + scrollOffsetY + i * rowHeight;
 
-                // Clip vertically to listArea
-                if (y + rowHeight < listArea.y || y > listArea.y + listArea.height) continue;
+                DrawRectangleRec(
+                    {baseX - 5, y, layout.contentWidth, layout.rowHeight},
+                    cardbg
+                );
 
-                float baseX = contentX + scrollOffsetX;
-
-                Rectangle row = { baseX - 5, y, contentWidth, rowHeight };
-
-                DrawRectangleRec(row, cardbg);
-
+                DrawTextureEx(dropdowns[i].open ? uparrowicon : downarrowicon, {baseX + COL_ID, y + 15}, 0.0f, 0.50f, BLUE);
+                if(CheckCollisionPointRec(GetMousePosition(), {baseX + COL_ID, y + 15, downarrowicon.width * 0.5f, downarrowicon.height * 0.5f}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
+                    dropdowns[i].open = !dropdowns[i].open;
+                }
                 DrawText(TextFormat("%d", item["id"].get<int>()),
                          baseX + COL_ID + 30, y + 15, 20, textcolor);
 
-                DrawTextWrappedColumn(
-                    item["title"].get<string>(),
-                    baseX + COL_TITLE,
-                    y + 8,
-                    TITLE_WIDTH,
-                    18,
-                    textcolor
-                );
-
-                DrawTextWrappedColumn(
-                    item["author"].get<string>(),
-                    baseX + COL_AUTHOR,
-                    y + 8,
-                    AUTHOR_WIDTH,
-                    18,
-                    textcolor
-                );
-
-
-                DrawTextWrappedColumn(
-                    item["category"].get<string>(),
-                    baseX + COL_CATEGORY,
-                    y + 8,
-                    CATEGORY_WIDTH,
-                    18,
-                    textcolor
-                );
-
+                DrawTextWrappedColumn(item["title"], baseX + COL_TITLE, y + 8, TITLE_WIDTH, 18, textcolor);
+                DrawTextWrappedColumn(item["author"], baseX + COL_AUTHOR, y + 8, AUTHOR_WIDTH, 18, textcolor);
+                DrawTextWrappedColumn(item["category"], baseX + COL_CATEGORY, y + 8, CATEGORY_WIDTH, 18, textcolor);
 
                 DrawText(TextFormat("%d/%d",
-                         item["available"].get<int>(),
-                         item["quantity"].get<int>()),
-                         baseX + COL_AVAILABLE + 20, y + 15, 20, textcolor);
-                        
-                DrawTextureEx(editicon, {baseX + COL_EDIT, y + 15}, 0.0f, 0.50f, BLUE);
-                if(CheckCollisionPointRec(GetMousePosition(),{baseX + COL_EDIT, y + 15, editicon.width * 0.5f, editicon.height * 0.5f}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-                    bookIndex = i , editBook = true;
-                DrawTextureEx(deleteicon, {baseX + COL_DELETE, y + 15}, 0.0f, 0.50f, RED);
-
-
+                    item["available"].get<int>(),
+                    item["quantity"].get<int>()),
+                    baseX + COL_AVAILABLE + 20, y + 15, 20, textcolor);
                 DrawLine(baseX,y,screenWidth,y, borderbg);
-
-                Vector2 mouse = GetMousePosition(); 
-                if (CheckCollisionPointRec(mouse, {baseX + 1460, y + 15, deleteicon.width * 0.5f, deleteicon.height * 0.5f}) &&
-                    IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-                {
-                    // 1. Remove book
-                    bookshelf["books"].erase(bookshelf["books"].begin() + i);
-                
-                    // 2. Reset IDs IN MEMORY (THIS IS WHAT UI USES)
-                    for (size_t j = 0; j < bookshelf["books"].size(); j++) {
-                        bookshelf["books"][j]["id"] = static_cast<int>(j + 1);
-                    }
-                
-                    // 3. Save ONCE
-                    ofstream outfile("bookshelf.json");
-                    outfile << bookshelf.dump(4);
-                    outfile.close();
-                
-                    return;
-                }
-
+                DrawTextureEx(editicon, {baseX + COL_EDIT, y + 15}, 0.0f, 0.50f, BLUE); 
+                    if(CheckCollisionPointRec(GetMousePosition(),{baseX + COL_EDIT, y + 15, editicon.width * 0.5f, editicon.height * 0.5f}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) 
+                        bookIndex = i , editBook = true; 
+                DrawTextureEx(deleteicon, {baseX + COL_DELETE, y + 15}, 0.0f, 0.50f, RED);
+                    Vector2 mouse = GetMousePosition(); 
+                        if (CheckCollisionPointRec(mouse, {baseX + 1460, y + 15, deleteicon.width * 0.5f, deleteicon.height * 0.5f}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { 
+                            // 1. Remove book 
+                            SaveUndoState(bookshelf);
+                            bookshelf["books"].erase(bookshelf["books"].begin() + i); 
+                            // 2. Reset IDs IN MEMORY (THIS IS WHAT UI USES) 
+                            for (size_t k = 0; k < bookshelf["books"].size(); k++) { 
+                                bookshelf["books"][k]["id"] = static_cast<int>(k + 1); 
+                            } 
+                            // 3. Save ONCE 
+                            ofstream outfile("bookshelf.json"); 
+                            outfile << bookshelf.dump(4); 
+                            outfile.close(); 
+                            return; 
+                        }
             }
-            
-        EndScissorMode();
+        );
     }
 
 };
@@ -732,34 +794,6 @@ class Members {
         }
 };
 
-class IssueBook {
-    private:
-
-    public:
-        void printIssueBook(){
-            DrawText("ISSUEBOOK", 50, 50, 50 , RED);
-        }
-};
-
-class ReturnBook {
-    private:
-
-    public:
-        void printReturnBook(){
-            DrawText("RETURNBOOK", 50, 50, 50 , RED);
-        }
-};
-
-class Report {
-    private:
-
-    public:
-        void printReport(){
-            DrawText("REOPRT", 50, 50, 50 , RED);
-        }
-};
-
-
 
 int main(){
     InitWindow(screenWidth, screenHeight, "Library Management System");
@@ -770,10 +804,7 @@ int main(){
     Dashboard dashboard;
     Book book;
     Members members;
-    IssueBook issuebook;
-    ReturnBook returnbook;
-    Report report;
-
+    
     seticons();
     while(!WindowShouldClose()){
         screenWidth = GetScreenWidth();
@@ -793,21 +824,18 @@ int main(){
         }
 
         // ----- NavBar ----- //
-        dashboardtext = {20,120,navbar.width - 40,50};
+        dashboardtext = {20,120,navbar.width - 30,50};
         booktext = {dashboardtext.x, dashboardtext.y + dashboardtext.height + 10, dashboardtext.width, dashboardtext.height};
         memberstext = {booktext.x, booktext.y + booktext.height + 10, booktext.width, booktext.height};
-        issuebooktext = {memberstext.x, memberstext.y + memberstext.height + 10, memberstext.width, memberstext.height};
-        returnbooktext = {issuebooktext.x, issuebooktext.y + issuebooktext.height + 10, issuebooktext.width, issuebooktext.height};
-        reporttext = {returnbooktext.x, returnbooktext.y + returnbooktext.height + 10, returnbooktext.width, returnbooktext.height};
-        themetext = {reporttext.x, reporttext.y + reporttext.height + 40, reporttext.width, reporttext.height};
+        themetext = {memberstext.x, memberstext.y + memberstext.height + 40, memberstext.width, memberstext.height};
         exittext = {themetext.x, themetext.y + themetext.height + 10, themetext.width, themetext.height};
         // ----------------- //
 
         //----- Dashboard ----- //
         totalbooksbg = {navbar.width + 20, 120, (float)screenWidth - navbar.width - 40, 100};
         issuebookbg = {totalbooksbg.x, totalbooksbg.y + totalbooksbg.height + 20, totalbooksbg.width, 100};
-        availabebookbg = {issuebookbg.x, issuebookbg.y + issuebookbg.height + 20, issuebookbg.width, 100};
-        totalmembersbg = {availabebookbg.x, availabebookbg.y + availabebookbg.height + 20, availabebookbg.width, 100};
+        availablebookbg = {issuebookbg.x, issuebookbg.y + issuebookbg.height + 20, issuebookbg.width, 100};
+        totalmembersbg = {availablebookbg.x, availablebookbg.y + availablebookbg.height + 20, availablebookbg.width, 100};
         // ------------------- //
         // ----- Books ----- //
         if(screenWidth > 1200){
@@ -816,15 +844,15 @@ int main(){
             addbookcard = {(float)screenWidth * 3.5f / 10.0f, (float)screenHeight * 1.0f / 10.0f, addcardwidth, addcardheight};
         }
         listItem = {navbar.width + 10, 100, listbodywidth, listbodyheight};
-        titlecard.rec = {addbookcard.x + 20, addbookcard.y + 100,addbookcard.width - 40, 50};
-        authorcard.rec = {addbookcard.x + 20, titlecard.rec.y + 60,addbookcard.width - 40, 50};
-        categorycard.rec = {addbookcard.x + 20, authorcard.rec.y + 60,addbookcard.width - 40, 50};
-        quantitycard.rec = {addbookcard.x + 20, categorycard.rec.y + 60,addbookcard.width - 40, 50};
-        issuedcard.rec = {addbookcard.x + 20, quantitycard.rec.y + 60,addbookcard.width - 40, 50};
+        titlebox.rec = {addbookcard.x + 20, addbookcard.y + 100,addbookcard.width - 40, 50};
+        authorbox.rec = {addbookcard.x + 20, titlebox.rec.y + 60,addbookcard.width - 40, 50};
+        categorybox.rec = {addbookcard.x + 20, authorbox.rec.y + 60,addbookcard.width - 40, 50};
+        quantitybox.rec = {addbookcard.x + 20, categorybox.rec.y + 60,addbookcard.width - 40, 50};
+        issuedbox.rec = {addbookcard.x + 20, quantitybox.rec.y + 60,addbookcard.width - 40, 50};
         addbtncard = {(float)screenWidth - 140, 50, 130, 40};
-        cancelbtncard = {addbookcard.x + 20, issuedcard.rec.y + 80, (addbookcard.width - 50) / 2, 50};
+        cancelbtncard = {addbookcard.x + 20, issuedbox.rec.y + 80, (addbookcard.width - 50) / 2, 50};
         submitbtncard = {addbookcard.x + addbookcard.width - ((addbookcard.width - 50) / 2) - 20, 
-                        issuedcard.rec.y + 80, 
+                        issuedbox.rec.y + 80, 
                         (addbookcard.width - 50) / 2, 50};
         // ---------------- //
 
@@ -839,41 +867,33 @@ int main(){
 
             if(bookActive){
                 if(CheckCollisionPointRec(GetMousePosition(), addbtncard) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) addingbook = true;
-                if(!addingbook && !editBook) book.printBook();
+
                 else if(editBook){
                     book.add_edit_book("edit");
-                    useinput(&titlecard.rec, edittitle, boxActiveTitle, defaulttitle);
-                    useinput(&authorcard.rec, editauthor, boxActiveAuthor, defaultauthor);
-                    useinput(&categorycard.rec, editcategory, boxActiveCategory, defaultcategory);
-                    useinput(&quantitycard.rec, editquantity, boxActiveQuantity, defaultquantity);
-                    useinput(&issuedcard.rec, editissued, boxActiveIssued, defaultissued);
+                    useinput(&titlebox.rec, edittitle, boxActiveTitle, defaulttitle);
+                    useinput(&authorbox.rec, editauthor, boxActiveAuthor, defaultauthor);
+                    useinput(&categorybox.rec, editcategory, boxActiveCategory, defaultcategory);
+                    useinput(&quantitybox.rec, editquantity, boxActiveQuantity, defaultquantity);
+                    useinput(&issuedbox.rec, editissued, boxActiveIssued, defaultissued);
                 }
                 else if(addingbook) {
                     book.add_edit_book("add");
-                    useinput(&titlecard.rec, title, boxActiveTitle,defaulttitle);
-                    useinput(&authorcard.rec, author, boxActiveAuthor,defaultauthor);
-                    useinput(&categorycard.rec, category, boxActiveCategory,defaultcategory);
-                    useinput(&quantitycard.rec, quantity, boxActiveQuantity,defaultquantity);
-                    useinput(&issuedcard.rec, issued, boxActiveIssued,defaultissued);
-                }
-
+                    useinput(&titlebox.rec, title, boxActiveTitle,defaulttitle);
+                    useinput(&authorbox.rec, author, boxActiveAuthor,defaultauthor);
+                    useinput(&categorybox.rec, category, boxActiveCategory,defaultcategory);
+                    useinput(&quantitybox.rec, quantity, boxActiveQuantity,defaultquantity);
+                    useinput(&issuedbox.rec, issued, boxActiveIssued,defaultissued);
+                    
+                } 
+                
+                
+                if(!editBook && !addingbook) book.printBook();
+                
             }
 
-            // if(membersActive){
-            //     members.printMembers();
-            // }
-
-            // if(issuebookActive){
-            //     issuebook.printIssueBook();
-            // }
-
-            // if(returnbookActive){
-            //     returnbook.printReturnBook();
-            // }
-
-            // if(reportActive){
-            //     report.printReport();
-            // }
+            if(membersActive){
+                members.printMembers();
+            }
 
             // if(exitActive){
             //     exit(0);
@@ -886,13 +906,15 @@ int main(){
     UnloadTexture(book1icon);
     UnloadTexture(book2icon);
     UnloadTexture(membersicon);
-    UnloadTexture(reporticon);
     UnloadTexture(sunicon);
     UnloadTexture(moonicon);
     UnloadTexture(exiticon);
-    UnloadTexture(searchicon);
     UnloadTexture(editicon);
     UnloadTexture(deleteicon);
+    UnloadTexture(undoicon);
+    UnloadTexture(redoicon);
+    UnloadTexture(downarrowicon);
+    UnloadTexture(uparrowicon);
 
     CloseWindow();
     
