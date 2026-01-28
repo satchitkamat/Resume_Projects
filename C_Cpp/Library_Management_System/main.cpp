@@ -82,6 +82,9 @@ Rectangle addbtncard;
 //Dashboard 
 Rectangle totalbooksbg, totalmembersbg, issuebookbg, availablebookbg;
 
+//Books
+Rectangle dropdownbox;
+
 //Required Variables
 bool dashboardActive = false;
 bool bookActive = true;
@@ -192,11 +195,13 @@ void seticons(){
     UnloadImage(downarrowimage);
     UnloadImage(uparrowimage);
 }
+
 void SaveUndoState(json& j) {
     undoStack.push(j);   // save current state
     while (!redoStack.empty())   // clear redo
     redoStack.pop();
 }
+
 void Undo(json& j, const string& filename) {
     if (undoStack.empty()) return;
 
@@ -208,6 +213,7 @@ void Undo(json& j, const string& filename) {
     ofstream file("bookshelf.json");
     file << j.dump(4);
 }
+
 void Redo(json& j, const string& filename) {
     if (redoStack.empty()) return;
 
@@ -217,6 +223,33 @@ void Redo(json& j, const string& filename) {
 
     ofstream file("bookshelf.json");
     file << j.dump(4);
+}
+
+void add_edit_book(const string& mode){
+    DrawRectangleRounded(addbookcard, 0.25f, 12, cardbg);
+    DrawRectangleRoundedLines(addbookcard, 0.25f, 12, borderbg);
+
+    DrawText(
+        mode == "edit" ? "Edit Book" : "Add Book",
+        addbookcard.x + 20,
+        addbookcard.y + 20,
+        30,
+        textcolor
+    );
+
+    // Cancel
+    DrawRectangleRounded(cancelbtncard, 0.25f, 12, RED);
+    DrawText("Cancel", cancelbtncard.x + 30, cancelbtncard.y + 15, 20, WHITE);
+
+    if (CheckCollisionPointRec(GetMousePosition(), cancelbtncard) &&
+        IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        addingbook = false;
+        editBook = false;
+    }
+
+    // Submit (logic can be added later)
+    DrawRectangleRounded(submitbtncard, 0.25f, 12, GREEN);
+    DrawText("Submit", submitbtncard.x + 30, submitbtncard.y + 15, 20, WHITE);
 }
 
 struct InputText{
@@ -367,13 +400,15 @@ struct TableScroll {
     float velocityX = 0;
     float velocityY = 0;
 };
-template<typename DrawHeaderFn, typename DrawRowFn>
+
+template<typename DrawHeaderFn, typename DrawRowFn, typename DrawDropdownsFn>
 void DrawTable(
     const TableLayout& layout,
     int rowCount,
     TableScroll& scroll,
-    DrawHeaderFn drawHeader,
-    DrawRowFn drawRow
+    const DrawHeaderFn& drawHeader,
+    const DrawRowFn& drawRow,
+    const DrawDropdownsFn& drawDropdowns
 ) {
     float dt = GetFrameTime();
 
@@ -441,6 +476,9 @@ void DrawTable(
     }
 
     EndScissorMode();
+    
+    // ----- Dropdowns (outside scissor mode) -----
+    drawDropdowns(layout.contentX + scroll.offsetX, scroll.offsetY);
 }
 
 class NavigationBar{
@@ -573,116 +611,104 @@ class NavigationBar{
     struct Dropdown{
         bool open = false;
     };
-    
+
 class Book {
-    private:
+private:
     json bookshelf;
-    TableScroll bookScroll;
-    vector<Dropdown> dropdowns;
-    
-    public:
-    
+    json membersList;
+    TableScroll scroll;
+    vector<bool> dropdownOpen;
+
+    int requestToggle = -1;
+    int requestEdit   = -1;
+    int requestDelete = -1;
+
+    // Helper function to count how many times a book title appears in issued_books arrays
+    int countIssuedCopies(const string& bookTitle) {
+        int count = 0;
+        if (membersList.contains("members")) {
+            for (auto& member : membersList["members"]) {
+                if (member.contains("issued_books") && member["issued_books"].is_array()) {
+                    for (auto& issuedBook : member["issued_books"]) {
+                        if (issuedBook.get<string>() == bookTitle) {
+                            count++;
+                        }
+                    }
+                }
+            }
+        }
+        return count;
+    }
+
+public:
     Book() {
+        // Load bookshelf
         ifstream file("bookshelf.json");
         if (!file.is_open()) {
             cerr << "ERROR: Could not open bookshelf.json\n";
             return;
         }
         file >> bookshelf;
+        file.close();
 
-        dropdowns.resize(bookshelf["books"].size());
-    }
-    void closeaddbook(){
-        addingbook = false;
-        editBook = false;
-        // Clear input texts
-        title.inputText.clear();
-        author.inputText.clear();
-        category.inputText.clear();
-        quantity.inputText.clear();
-        issued.inputText.clear();
-        edittitle.inputText.clear();
-        editauthor.inputText.clear();
-        editcategory.inputText.clear();
-        editquantity.inputText.clear();
-        editissued.inputText.clear();
-                
-        // Reset cursor positions
-        title.cursorIndex = author.cursorIndex =
-        category.cursorIndex = quantity.cursorIndex = issued.cursorIndex = 0;
-        edittitle.cursorIndex =
-        editauthor.cursorIndex =
-        editcategory.cursorIndex =
-        editquantity.cursorIndex =
-        editissued.cursorIndex = 0;
-
-                
-        // Deactivate all input boxes
-        boxActiveTitle = false;
-        boxActiveAuthor = false;
-        boxActiveCategory = false;
-        boxActiveQuantity = false;
-        boxActiveIssued = false;
-    }
-    void add_edit_bookdetails(const string& title,const string& author,const string& category, const string& quantityinput, const string& issue, bool add){
-        json item;
-        item["id"] =  (add ? bookshelf["books"].size() + 1 : bookIndex + 1);
-        item["title"] = title;
-        item["author"] = author;
-        item["category"] = category;
-        item["quantity"] = stoi(quantityinput);
-        item["available"] = stoi(quantityinput) - stoi(issue);
-
-        if(add){
-            SaveUndoState(bookshelf);
-            bookshelf["books"].push_back(item);
-
+        // Load members
+        ifstream mfile("members.json");
+        if (!mfile.is_open()) {
+            cerr << "ERROR: Could not open members.json\n";
+            return;
         }
-        else{
-            SaveUndoState(bookshelf);
+        mfile >> membersList;
+        mfile.close();
 
-            bookshelf["books"].erase(bookshelf["books"].begin() + bookIndex); 
-            bookshelf["books"].insert(bookshelf["books"].begin() + bookIndex, item);
-        }
-
-        ofstream file("bookshelf.json");
-            file << bookshelf.dump(4);
-            file.close();
-
-            closeaddbook();
+        dropdownOpen.resize(bookshelf["books"].size(), false);
     }
 
-    void add_edit_book(string check){
-        defaulttitle.defaultText = (check == "add" ? "Title" : bookshelf["books"][bookIndex]["title"].get<string>());
-        defaultauthor.defaultText = (check == "add" ? "Author" : bookshelf["books"][bookIndex]["author"].get<string>());
-        defaultcategory.defaultText = (check == "add" ? "Category" : bookshelf["books"][bookIndex]["category"].get<string>());
-        defaultquantity.defaultText = (check == "add" ? "Total Quantity" : TextFormat("%d",bookshelf["books"][bookIndex]["quantity"].get<int>()));
-        defaultissued.defaultText = (check == "add" ? "Issued to member" : TextFormat("%d",bookshelf["books"][bookIndex]["quantity"].get<int>() - bookshelf["books"][bookIndex]["available"].get<int>()));
+    // Keep dropdown state aligned with data size
+    void syncDropdowns() {
+        size_t bookCount = bookshelf["books"].size();
+        dropdownOpen.clear();
+        dropdownOpen.resize(bookCount, false);
+    }
 
-        DrawRectangle(0,0,screenWidth,screenHeight, mainbg);
-        DrawRectangleRounded(addbookcard,0.1f, 1,cardbg);
-        DrawText((check == "add" ? "Add New Book" : "Edit Book"), (check == "add" ? addbookcard.x + (addbookcard.width / 5) : addbookcard.x + (addbookcard.width / 3)), addbookcard.y + 20, 35, textcolor);
-        DrawRectangleRoundedLines(titlebox.rec, 0.25f, 1,borderbg);
-        DrawRectangleRoundedLines(authorbox.rec, 0.25f, 1,borderbg);
-        DrawRectangleRoundedLines(categorybox.rec, 0.25f, 1,borderbg);
-        DrawRectangleRoundedLines(quantitybox.rec, 0.25f, 1,borderbg);
-        DrawRectangleRoundedLines(issuedbox.rec, 0.25f, 1,borderbg);
-        DrawRectangleRounded(cancelbtncard, 0.25f,12, textsecondarydark);
-        DrawText("Cancel", cancelbtncard.x + 45, cancelbtncard.y + 15, 25, textcolordark);
-            if(CheckCollisionPointRec(GetMousePosition(), cancelbtncard) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) closeaddbook();
-        DrawRectangleRounded(submitbtncard, 0.25f, 12, activebg);
-        DrawText("Submit", submitbtncard.x + 45, submitbtncard.y + 15, 25, textcolordark);
-            if((CheckCollisionPointRec(GetMousePosition(), submitbtncard) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) && check == "add") 
-                add_edit_bookdetails(title.inputText,author.inputText,category.inputText,quantity.inputText,issued.inputText, true);
-            if((CheckCollisionPointRec(GetMousePosition(), submitbtncard) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) && check == "edit"){
-                add_edit_bookdetails((edittitle.inputText.empty() ? defaulttitle.defaultText : edittitle.inputText),
-                                     (editauthor.inputText.empty() ? defaultauthor.defaultText : editauthor.inputText),
-                                     (editcategory.inputText.empty() ? defaultcategory.defaultText : editcategory.inputText),
-                                     (editquantity.inputText.empty() ? defaultquantity.defaultText : editquantity.inputText),
-                                     (editissued.inputText.empty() ? defaultissued.defaultText : editissued.inputText), 
-                                     false);
+    // Apply state-changing actions AFTER drawing
+    void applyActions() {
+        // ---- DROPDOWN TOGGLE ----
+        if (requestToggle != -1 && requestToggle >= 0 && requestToggle < dropdownOpen.size()) {
+            bool wasOpen = dropdownOpen[requestToggle];
+            for (size_t i = 0; i < dropdownOpen.size(); i++) {
+                dropdownOpen[i] = false;
             }
+            dropdownOpen[requestToggle] = !wasOpen;
+            requestToggle = -1;
+        }
+
+        // ---- EDIT ----
+        if (requestEdit != -1 && requestEdit >= 0 && requestEdit < bookshelf["books"].size()) {
+            bookIndex = requestEdit;
+            editBook = true;
+            requestEdit = -1;
+        }
+
+        // ---- DELETE ----
+        if (requestDelete != -1 && requestDelete >= 0 && requestDelete < bookshelf["books"].size()) {
+            SaveUndoState(bookshelf);
+        
+            // Directly access and modify the books array
+            bookshelf["books"].erase(requestDelete);
+        
+            // Reindex the books
+            for (int i = 0; i < bookshelf["books"].size(); i++)
+                bookshelf["books"][i]["id"] = i + 1;
+        
+            ofstream out("bookshelf.json");
+            out << bookshelf.dump(4);
+            out.close();
+        
+            syncDropdowns();
+            requestDelete = -1;
+        }
     }
+
     void printBook() {
         float contentX = navbar.width + 20;
 
@@ -690,100 +716,232 @@ class Book {
             contentX,
             100.0f,
             50.0f,
-            50.0f,
+            60.0f,
             (float)screenWidth - contentX - 10.0f,
             (float)screenHeight - 150.0f,
-            1500.0f
+            CONTENT_WIDTH
         };
 
-        // Heading
+        // ---- HEADER ----
         DrawText("Books Management", contentX, 50, 45, textcolor);
-        //ADdbtn
-        DrawRectangleRounded(addbtncard, 0.25f, 12, activebg);
-        DrawText("+ Add Book", (float)screenWidth - 130, 60, 20, WHITE); 
-        //undo icon
-        DrawRectangleRounded({(float)screenWidth - 250, 50, 40, 40}, 0.25f, 12, BLUE);
-        DrawTextureEx(undoicon, {(float)screenWidth - 250, 52}, 0.0f, 0.75f, WHITE); 
-        if((CheckCollisionPointRec(GetMousePosition(), {(float)screenWidth - 250, 50, 40, 40}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_Z))) Undo(bookshelf,"bookshelf.json");
-        //redo icon
-        DrawRectangleRounded({(float)screenWidth - 200, 50, 40, 40}, 0.25f, 12, RED);
-        DrawTextureEx(redoicon, {(float)screenWidth - 200, 52}, 0.0f, 0.75f, WHITE);
-        if((CheckCollisionPointRec(GetMousePosition(), {(float)screenWidth - 200, 50, 40, 40}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_Y))) Redo(bookshelf,"bookshelf.json");
 
+        DrawRectangleRounded(addbtncard, 0.25f, 12, activebg);
+        DrawText("+ Add Book", addbtncard.x + 15, addbtncard.y + 10, 20, WHITE);
+
+        // ---- TABLE ----
         DrawTable(
             layout,
             bookshelf["books"].size(),
-            bookScroll,
+            scroll,
 
-            // ----- HEADER -----
-            [&](float baseX) {
-                DrawRectangleRounded(
+            // HEADER ROW
+            [&](float bx) {
+                DrawRectangleRec(
                     {contentX, layout.headerY, layout.viewWidth, layout.headerHeight},
-                    0.25f, 1, textsecondary
+                    textsecondary
                 );
 
-                DrawText("Book Id",   baseX + COL_ID,        layout.headerY + 15, 20, light ? textcolordark : textcolorlight);
-                DrawText("Title",     baseX + COL_TITLE,     layout.headerY + 15, 20, light ? textcolordark : textcolorlight);
-                DrawText("Author",    baseX + COL_AUTHOR,    layout.headerY + 15, 20, light ? textcolordark : textcolorlight);
-                DrawText("Category",  baseX + COL_CATEGORY,  layout.headerY + 15, 20, light ? textcolordark : textcolorlight);
-                DrawText("Available", baseX + COL_AVAILABLE, layout.headerY + 15, 20, light ? textcolordark : textcolorlight);
-                DrawText("Action",    baseX + COL_EDIT,      layout.headerY + 15, 20, light ? textcolordark : textcolorlight);
+                DrawText("ID", bx + COL_ID, layout.headerY + 15, 20, textcolor);
+                DrawText("Title", bx + COL_TITLE, layout.headerY + 15, 20, textcolor);
+                DrawText("Author", bx + COL_AUTHOR, layout.headerY + 15, 20, textcolor);
+                DrawText("Category", bx + COL_CATEGORY, layout.headerY + 15, 20, textcolor);
+                DrawText("Available", bx + COL_AVAILABLE, layout.headerY + 15, 20, textcolor);
+                DrawText("Action", bx + COL_EDIT, layout.headerY + 15, 20, textcolor);
             },
 
-            // ----- ROWS -----
-            [&](int i, float baseX, float y) {
-                json& item = bookshelf["books"][i];
-                Dropdown& dropdown = dropdowns[i];
+            // DATA ROWS
+            [&](int i, float bx, float y) {
+                // Ensure dropdownOpen is properly sized
+                if (i >= dropdownOpen.size()) {
+                    dropdownOpen.resize(i + 1, false);
+                }
+                
+                const json& item = bookshelf["books"][i];
+                string bookTitle = item["title"].get<string>();
+                int totalQuantity = item["quantity"].get<int>();
+                
+                // Calculate issued count from members.json
+                int issuedCount = countIssuedCopies(bookTitle);
+                int availableCount = totalQuantity - issuedCount;
 
-
+                // Draw main row background  
                 DrawRectangleRec(
-                    {baseX - 5, y, layout.contentWidth, layout.rowHeight},
+                    {bx - 5, y, layout.contentWidth, layout.rowHeight},
                     cardbg
                 );
 
-                DrawTextureEx(dropdowns[i].open ? uparrowicon : downarrowicon, {baseX + COL_ID, y + 15}, 0.0f, 0.50f, BLUE);
-                if(CheckCollisionPointRec(GetMousePosition(), {baseX + COL_ID, y + 15, downarrowicon.width * 0.5f, downarrowicon.height * 0.5f}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
-                    dropdowns[i].open = !dropdowns[i].open;
+                // ---- DROPDOWN ARROW ----
+                Rectangle arrow {
+                    bx + COL_ID,
+                    y + 20,
+                    downarrowicon.width * 0.5f,
+                    downarrowicon.height * 0.5f
+                };
+
+                DrawTextureEx(
+                    dropdownOpen[i] ? uparrowicon : downarrowicon,
+                    {arrow.x, arrow.y}, 0, 0.5f, BLUE
+                );
+
+                if (CheckCollisionPointRec(GetMousePosition(), arrow) &&
+                    IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                    requestToggle = i;
                 }
+
+                // ---- COLUMNS ----
                 DrawText(TextFormat("%d", item["id"].get<int>()),
-                         baseX + COL_ID + 30, y + 15, 20, textcolor);
+                         bx + COL_ID + 30, y + 18, 20, textcolor);
 
-                DrawTextWrappedColumn(item["title"], baseX + COL_TITLE, y + 8, TITLE_WIDTH, 18, textcolor);
-                DrawTextWrappedColumn(item["author"], baseX + COL_AUTHOR, y + 8, AUTHOR_WIDTH, 18, textcolor);
-                DrawTextWrappedColumn(item["category"], baseX + COL_CATEGORY, y + 8, CATEGORY_WIDTH, 18, textcolor);
+                DrawTextWrappedColumn(bookTitle, bx + COL_TITLE, y + 10,
+                                      TITLE_WIDTH, 18, textcolor);
 
-                DrawText(TextFormat("%d/%d",
-                    item["available"].get<int>(),
-                    item["quantity"].get<int>()),
-                    baseX + COL_AVAILABLE + 20, y + 15, 20, textcolor);
-                DrawLine(baseX,y,screenWidth,y, borderbg);
-                DrawTextureEx(editicon, {baseX + COL_EDIT, y + 15}, 0.0f, 0.50f, BLUE); 
-                    if(CheckCollisionPointRec(GetMousePosition(),{baseX + COL_EDIT, y + 15, editicon.width * 0.5f, editicon.height * 0.5f}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) 
-                        bookIndex = i , editBook = true; 
-                DrawTextureEx(deleteicon, {baseX + COL_DELETE, y + 15}, 0.0f, 0.50f, RED);
-                    Vector2 mouse = GetMousePosition(); 
-                        if (CheckCollisionPointRec(mouse, {baseX + 1460, y + 15, deleteicon.width * 0.5f, deleteicon.height * 0.5f}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { 
-                            // 1. Remove book 
-                            SaveUndoState(bookshelf);
-                            bookshelf["books"].erase(bookshelf["books"].begin() + i); 
-                            // 2. Reset IDs IN MEMORY (THIS IS WHAT UI USES) 
-                            for (size_t k = 0; k < bookshelf["books"].size(); k++) { 
-                                bookshelf["books"][k]["id"] = static_cast<int>(k + 1); 
-                            } 
-                            // 3. Save ONCE 
-                            ofstream outfile("bookshelf.json"); 
-                            outfile << bookshelf.dump(4); 
-                            outfile.close(); 
-                            return; 
+                DrawTextWrappedColumn(item["author"], bx + COL_AUTHOR, y + 10,
+                                      AUTHOR_WIDTH, 18, textcolor);
+
+                DrawTextWrappedColumn(item["category"], bx + COL_CATEGORY, y + 10,
+                                      CATEGORY_WIDTH, 18, textcolor);
+
+                // Display calculated available count
+                DrawText(
+                    TextFormat("%d/%d", availableCount, totalQuantity),
+                    bx + COL_AVAILABLE + 20, y + 18, 20, textcolor
+                );
+
+                // ---- EDIT ----
+                Rectangle editR {
+                    bx + COL_EDIT,
+                    y + 20,
+                    editicon.width * 0.5f,
+                    editicon.height * 0.5f
+                };
+
+                DrawTextureEx(editicon, {editR.x, editR.y}, 0, 0.5f, BLUE);
+
+                if (CheckCollisionPointRec(GetMousePosition(), editR) &&
+                    IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                    requestEdit = i;
+
+                // ---- DELETE ----
+                Rectangle delR {
+                    bx + COL_DELETE,
+                    y + 20,
+                    deleteicon.width * 0.5f,
+                    deleteicon.height * 0.5f
+                };
+
+                DrawTextureEx(deleteicon, {delR.x, delR.y}, 0, 0.5f, RED);
+
+                if (CheckCollisionPointRec(GetMousePosition(), delR) &&
+                    IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                    requestDelete = i;
+            },
+            
+            // DROPDOWNS (rendered outside scissor mode)
+            [&](float bx, float scrollOffsetY) {
+                // Ensure dropdownOpen size matches books size
+                if (dropdownOpen.size() != bookshelf["books"].size()) {
+                    dropdownOpen.resize(bookshelf["books"].size(), false);
+                }
+                
+                for (size_t i = 0; i < bookshelf["books"].size() && i < dropdownOpen.size(); i++) {
+                    if (!dropdownOpen[i]) continue;
+                    
+                    const json& item = bookshelf["books"][i];
+                    string bookTitle = item["title"].get<string>();
+                    int totalQuantity = item["quantity"].get<int>();
+                    
+                    // Calculate row position
+                    float y = layout.headerY + layout.headerHeight +
+                              scrollOffsetY + i * layout.rowHeight;
+                    
+                    // Only render if row is visible
+                    if (y + layout.rowHeight < layout.headerY + layout.headerHeight ||
+                        y > layout.headerY + layout.headerHeight + layout.viewHeight)
+                        continue;
+                    
+                    // Find all members who have issued this book
+                    vector<json> membersWithBook;
+                    
+                    if (membersList.contains("members")) {
+                        for (auto& member : membersList["members"]) {
+                            if (member.contains("issued_books") && member["issued_books"].is_array()) {
+                                // Check if this member has issued this book
+                                for (auto& issuedBook : member["issued_books"]) {
+                                    if (issuedBook.get<string>() == bookTitle) {
+                                        membersWithBook.push_back(member);
+                                        break; // Found the book, move to next member
+                                    }
+                                }
+                            }
                         }
+                    }
+                    
+                    // Calculate counts
+                    int issuedCount = membersWithBook.size();
+                    int availableCount = totalQuantity - issuedCount;
+                    
+                    float dropdownHeight = 40 + membersWithBook.size() * 25;
+                    if (membersWithBook.empty()) dropdownHeight = 50;
+                    
+                    // Dropdown background rectangle
+                    Rectangle dropdownBg = {
+                        bx + COL_TITLE - 5,
+                        y + layout.rowHeight,
+                        TITLE_WIDTH + AUTHOR_WIDTH + CATEGORY_WIDTH + 60,
+                        dropdownHeight
+                    };
+                
+                    // Draw background and border
+                    DrawRectangleRounded(dropdownBg, 0.2f, 6, light ? Color{240,245,250,255} : Color{40,50,65,255});
+                    DrawRectangleRoundedLines(dropdownBg, 0.2f, 6, borderbg);
+                
+                    // Draw summary line with calculated counts
+                    DrawText(
+                        TextFormat("Total Copies: %d   Issued: %d   Available: %d",
+                            totalQuantity,
+                            issuedCount,
+                            availableCount),
+                        dropdownBg.x + 10,
+                        dropdownBg.y + 10,
+                        16,
+                        textsecondary
+                    );
+                
+                    // Draw member list
+                    if (!membersWithBook.empty()) {
+                        DrawText("Currently issued to:", 
+                            dropdownBg.x + 10, dropdownBg.y + 32, 14, textcolor);
+                        
+                        float lineY = dropdownBg.y + 50;
+                        for (auto &member : membersWithBook) {
+                            string memberType = member["membership_type"].get<string>();
+                            string memberName = member["name"].get<string>();
+                            int memberId = member["member_id"].get<int>();
+                            
+                            DrawText(
+                                TextFormat("  -> %s (ID:%d) - %s",
+                                    memberName.c_str(),
+                                    memberId,
+                                    memberType.c_str()
+                                ),
+                                dropdownBg.x + 10,
+                                lineY,
+                                14,
+                                textsecondary
+                            );
+                            lineY += 25;
+                        }
+                    } else {
+                        DrawText("No members have currently issued this book", 
+                            dropdownBg.x + 10, dropdownBg.y + 32, 14, textsecondary);
+                    }
+                }
             }
         );
+
+        applyActions();
     }
-
 };
-
-
-
 
 class Members {
     private:
@@ -854,6 +1012,7 @@ int main(){
         submitbtncard = {addbookcard.x + addbookcard.width - ((addbookcard.width - 50) / 2) - 20, 
                         issuedbox.rec.y + 80, 
                         (addbookcard.width - 50) / 2, 50};
+        dropdownbox = {listItem.x + 10, listItem.y, listItem.width - 10, listItem.height};
         // ---------------- //
 
         BeginDrawing();
@@ -865,39 +1024,43 @@ int main(){
                 dashboard.printDashboard();
             }
 
-            if(bookActive){
-                if(CheckCollisionPointRec(GetMousePosition(), addbtncard) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) addingbook = true;
+            if (bookActive) {
+                // ---------- INPUT (state changes only) ----------
+                if (!addingbook && !editBook) {
+                    if (CheckCollisionPointRec(GetMousePosition(), addbtncard) &&
+                        IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                        addingbook = true;
+                    }
+                }
 
-                else if(editBook){
-                    book.add_edit_book("edit");
+                // ---------- RENDER ----------
+                if (editBook) {
+                    add_edit_book("edit");
+
                     useinput(&titlebox.rec, edittitle, boxActiveTitle, defaulttitle);
                     useinput(&authorbox.rec, editauthor, boxActiveAuthor, defaultauthor);
                     useinput(&categorybox.rec, editcategory, boxActiveCategory, defaultcategory);
                     useinput(&quantitybox.rec, editquantity, boxActiveQuantity, defaultquantity);
                     useinput(&issuedbox.rec, editissued, boxActiveIssued, defaultissued);
                 }
-                else if(addingbook) {
-                    book.add_edit_book("add");
-                    useinput(&titlebox.rec, title, boxActiveTitle,defaulttitle);
-                    useinput(&authorbox.rec, author, boxActiveAuthor,defaultauthor);
-                    useinput(&categorybox.rec, category, boxActiveCategory,defaultcategory);
-                    useinput(&quantitybox.rec, quantity, boxActiveQuantity,defaultquantity);
-                    useinput(&issuedbox.rec, issued, boxActiveIssued,defaultissued);
-                    
-                } 
-                
-                
-                if(!editBook && !addingbook) book.printBook();
-                
+                else if (addingbook) {
+                    add_edit_book("add");
+
+                    useinput(&titlebox.rec, title, boxActiveTitle, defaulttitle);
+                    useinput(&authorbox.rec, author, boxActiveAuthor, defaultauthor);
+                    useinput(&categorybox.rec, category, boxActiveCategory, defaultcategory);
+                    useinput(&quantitybox.rec, quantity, boxActiveQuantity, defaultquantity);
+                    useinput(&issuedbox.rec, issued, boxActiveIssued, defaultissued);
+                }
+                else {
+                    book.printBook();
+                }
             }
 
             if(membersActive){
                 members.printMembers();
             }
 
-            // if(exitActive){
-            //     exit(0);
-            // }
         EndDrawing();
     }
 

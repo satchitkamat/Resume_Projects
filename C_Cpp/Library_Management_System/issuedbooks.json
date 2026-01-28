@@ -1,124 +1,54 @@
 {
   "issued_books": [
-    {
-      "issue_id": "IB001",
-      "book_id": "B003",
-      "member_id": "M002",
-      "issue_date": "2025-12-01",
-      "due_date": "2025-12-15",
-      "return_date": ""
-    },
-    {
-      "issue_id": "IB002",
-      "book_id": "B009",
-      "member_id": "M010",
-      "issue_date": "2025-11-28",
-      "due_date": "2025-12-12",
-      "return_date": ""
-    },
-    {
-      "issue_id": "IB003",
-      "book_id": "B019",
-      "member_id": "M014",
-      "issue_date": "2025-12-05",
-      "due_date": "2025-12-19",
-      "return_date": ""
-    },
-    {
-      "issue_id": "IB004",
-      "book_id": "B025",
-      "member_id": "M003",
-      "issue_date": "2025-11-20",
-      "due_date": "2025-12-04",
-      "return_date": "2025-12-03"
-    },
-    {
-      "issue_id": "IB005",
-      "book_id": "B032",
-      "member_id": "M006",
-      "issue_date": "2025-12-02",
-      "due_date": "2025-12-16",
-      "return_date": ""
-    },
-    {
-      "issue_id": "IB006",
-      "book_id": "B045",
-      "member_id": "M015",
-      "issue_date": "2025-11-30",
-      "due_date": "2025-12-14",
-      "return_date": ""
-    },
-    {
-      "issue_id": "IB007",
-      "book_id": "B013",
-      "member_id": "M007",
-      "issue_date": "2025-12-03",
-      "due_date": "2025-12-17",
-      "return_date": ""
-    },
-    {
-      "issue_id": "IB008",
-      "book_id": "B029",
-      "member_id": "M011",
-      "issue_date": "2025-12-01",
-      "due_date": "2025-12-15",
-      "return_date": ""
-    },
-    {
-      "issue_id": "IB009",
-      "book_id": "B038",
-      "member_id": "M020",
-      "issue_date": "2025-11-25",
-      "due_date": "2025-12-09",
-      "return_date": "2025-12-08"
-    },
-    {
-      "issue_id": "IB010",
-      "book_id": "B005",
-      "member_id": "M001",
-      "issue_date": "2025-12-06",
-      "due_date": "2025-12-20",
-      "return_date": ""
-    },
-    {
-      "issue_id": "IB011",
-      "book_id": "B041",
-      "member_id": "M017",
-      "issue_date": "2025-12-02",
-      "due_date": "2025-12-16",
-      "return_date": ""
-    },
-    {
-      "issue_id": "IB012",
-      "book_id": "B048",
-      "member_id": "M022",
-      "issue_date": "2025-12-04",
-      "due_date": "2025-12-18",
-      "return_date": ""
-    },
-    {
-      "issue_id": "IB013",
-      "book_id": "B018",
-      "member_id": "M012",
-      "issue_date": "2025-11-29",
-      "due_date": "2025-12-13",
-      "return_date": ""
-    },
-    {
-      "issue_id": "IB014",
-      "book_id": "B033",
-      "member_id": "M009",
-      "issue_date": "2025-12-03",
-      "due_date": "2025-12-17",
-      "return_date": ""
-    },
-    {
-      "issue_id": "IB015",
-      "book_id": "B007",
-      "member_id": "M005",
-      "issue_date": "2025-11-27",
-      "due_date": "2025-12-11",
-      "return_date": "2025-12-10"
-    }
+    {"issue_id": 1, "book_id": 1, "book_title": "Introduction to Algorithms", "member_id": 1, "issue_date": "2025-01-15", "due_date": "2025-02-15", "return_date": ""},
+    {"issue_id": 2, "book_id": 1, "book_title": "Introduction to Algorithms", "member_id": 38, "issue_date": "2025-01-12", "due_date": "2025-02-12", "return_date": ""},
+    
+    {"issue_id": 3, "book_id": 2, "book_title": "Data Structures Using C++", "member_id": 3, "issue_date": "2025-01-10", "due_date": "2025-02-10", "return_date": ""},
+    {"issue_id": 4, "book_id": 2, "book_title": "Data Structures Using C++", "member_id": 38, "issue_date": "2025-01-18", "due_date": "2025-02-18", "return_date": ""},
+    
+    {"issue_id": 5, "book_id": 3, "book_title": "Let Us C++", "member_id": 3, "issue_date": "2025-01-14", "due_date": "2025-02-14", "return_date": ""},
+    {"issue_id": 6, "book_id": 3, "book_title": "Let Us C++", "member_id": 39, "issue_date": "2025-01-16", "due_date": "2025-02-16", "return_date": ""},
+    
+    {"issue_id": 7, "book_id": 4, "book_title": "Operating System Concepts", "member_id": 4, "issue_date": "2025-01-20", "due_date": "2025-02-20", "return_date": ""},
+    {"issue_id": 8, "book_id": 4, "book_title": "Operating System Concepts", "member_id": 42, "issue_date": "2025-01-21", "due_date": "2025-02-21", "return_date": ""},
+    
+    {"issue_id": 9, "book_id": 5, "book_title": "Computer Networks", "member_id": 6, "issue_date": "2025-01-11", "due_date": "2025-02-11", "return_date": ""},
+    {"issue_id": 10, "book_id": 5, "book_title": "Computer Networks", "member_id": 42, "issue_date": "2025-01-13", "due_date": "2025-02-13", "return_date": ""},
+    
+    {"issue_id": 11, "book_id": 6, "book_title": "Database System Concepts", "member_id": 6, "issue_date": "2025-01-09", "due_date": "2025-02-09", "return_date": ""},
+    {"issue_id": 12, "book_id": 6, "book_title": "Database System Concepts", "member_id": 42, "issue_date": "2025-01-17", "due_date": "2025-02-17", "return_date": ""},
+    
+    {"issue_id": 13, "book_id": 7, "book_title": "Artificial Intelligence", "member_id": 6, "issue_date": "2025-01-08", "due_date": "2025-02-08", "return_date": ""},
+    {"issue_id": 14, "book_id": 7, "book_title": "Artificial Intelligence", "member_id": 43, "issue_date": "2025-01-22", "due_date": "2025-02-22", "return_date": ""},
+    
+    {"issue_id": 15, "book_id": 8, "book_title": "Machine Learning", "member_id": 7, "issue_date": "2025-01-23", "due_date": "2025-02-23", "return_date": ""},
+    {"issue_id": 16, "book_id": 8, "book_title": "Machine Learning", "member_id": 44, "issue_date": "2025-01-24", "due_date": "2025-02-24", "return_date": ""},
+    
+    {"issue_id": 17, "book_id": 9, "book_title": "Atomic Habits", "member_id": 8, "issue_date": "2025-01-25", "due_date": "2025-02-25", "return_date": ""},
+    {"issue_id": 18, "book_id": 9, "book_title": "Atomic Habits", "member_id": 44, "issue_date": "2025-01-26", "due_date": "2025-02-26", "return_date": ""},
+    
+    {"issue_id": 19, "book_id": 10, "book_title": "Think and Grow Rich", "member_id": 8, "issue_date": "2025-01-19", "due_date": "2025-02-19", "return_date": ""},
+    {"issue_id": 20, "book_id": 10, "book_title": "Think and Grow Rich", "member_id": 45, "issue_date": "2025-01-27", "due_date": "2025-02-27", "return_date": ""},
+    
+    {"issue_id": 21, "book_id": 11, "book_title": "The Alchemist", "member_id": 9, "issue_date": "2025-01-05", "due_date": "2025-02-05", "return_date": ""},
+    {"issue_id": 22, "book_id": 11, "book_title": "The Alchemist", "member_id": 46, "issue_date": "2025-01-06", "due_date": "2025-02-06", "return_date": ""},
+    
+    {"issue_id": 23, "book_id": 12, "book_title": "Rich Dad Poor Dad", "member_id": 11, "issue_date": "2025-01-07", "due_date": "2025-02-07", "return_date": ""},
+    {"issue_id": 24, "book_id": 12, "book_title": "Rich Dad Poor Dad", "member_id": 46, "issue_date": "2025-01-28", "due_date": "2025-02-28", "return_date": ""},
+    
+    {"issue_id": 25, "book_id": 13, "book_title": "Psychology of Money", "member_id": 12, "issue_date": "2025-01-04", "due_date": "2025-02-04", "return_date": ""},
+    {"issue_id": 26, "book_id": 13, "book_title": "Psychology of Money", "member_id": 47, "issue_date": "2025-01-03", "due_date": "2025-02-03", "return_date": ""},
+    
+    {"issue_id": 27, "book_id": 14, "book_title": "Ikigai", "member_id": 12, "issue_date": "2025-01-02", "due_date": "2025-02-02", "return_date": ""},
+    {"issue_id": 28, "book_id": 14, "book_title": "Ikigai", "member_id": 47, "issue_date": "2025-01-01", "due_date": "2025-02-01", "return_date": ""},
+    
+    {"issue_id": 29, "book_id": 15, "book_title": "Deep Work", "member_id": 14, "issue_date": "2024-12-30", "due_date": "2025-01-30", "return_date": ""},
+    {"issue_id": 30, "book_id": 15, "book_title": "Deep Work", "member_id": 47, "issue_date": "2024-12-29", "due_date": "2025-01-29", "return_date": ""},
+    
+    {"issue_id": 31, "book_id": 16, "book_title": "The Power of Habit", "member_id": 14, "issue_date": "2024-12-28", "due_date": "2025-01-28", "return_date": ""},
+    {"issue_id": 32, "book_id": 16, "book_title": "The Power of Habit", "member_id": 48, "issue_date": "2024-12-27", "due_date": "2025-01-27", "return_date": ""},
+    
+    {"issue_id": 33, "book_id": 17, "book_title": "Zero to One", "member_id": 16, "issue_date": "2024-12-26", "due_date": "2025-01-26", "return_date": ""},
+    {"issue_id": 34, "book_id": 17, "book_title": "Zero to One", "member_id": 49, "issue_date": "2024-12-25", "due_date": "2025-01-25", "return_date": ""}
   ]
 }
