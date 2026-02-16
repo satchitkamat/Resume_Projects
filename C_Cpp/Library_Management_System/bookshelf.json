@@ -2,7 +2,7 @@
     "books": [
         {
             "author": "Thomas H. Cormen",
-            "available": 5,
+            "available": 10,
             "category": "Programming",
             "id": 1,
             "quantity": 10,
