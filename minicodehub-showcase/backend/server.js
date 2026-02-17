@@ -247,7 +247,7 @@ app.get('/api/video/:id', async (req, res) => {
 
 function getLangFromTitle(title) {
     const t = title.toLowerCase();
-    if (t.includes('react')) return 'reactjs';
+    if (t.includes('react') || t.includes('mern') || t.includes('next')) return 'reactjs';
     if (t.includes('cpp') || t.includes('c++')) return 'cpp';
     if (t.includes('html') || t.includes('css') || t.includes('javascript') || t.includes('js')) return 'html';
     return 'html'; // Default

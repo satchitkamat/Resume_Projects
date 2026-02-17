@@ -10,7 +10,7 @@ function Navbar({ filter, setFilter, search, setSearch, stats, scrollDirection, 
       fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out backdrop-blur-xl
       ${isScrolled
         ? 'py-2 shadow-2xl bg-black/90 border-b border-purple-500/70 h-16'
-        : 'py-6 bg-black/50 h-32'
+        : 'py-4 bg-black/50 h-20'
       }
       ${scrollDirection === 'down' && isScrolled ? '-translate-y-full' : 'translate-y-0'}
     `}>
@@ -160,7 +160,7 @@ function Home() {
         isScrolled={isScrolled}
       />
 
-      <main className="pt-32 lg:pt-40 pb-12">
+      <main className="pt-24 lg:pt-28 pb-12">
         {/* Filter Status */}
         <div className="max-w-7xl mx-auto px-6 mb-16 pt-8">
           <div className={`inline-flex items-center gap-4 px-8 py-5 rounded-3xl backdrop-blur-xl font-bold text-xl bg-white/10 border border-white/20 shadow-2xl ${filter !== 'all' ? 'border-purple-500/50 bg-purple-500/10 ring-2 ring-purple-500/30' : ''
@@ -298,16 +298,18 @@ function VideoDetail() {
   const navigate = useNavigate();
   const socketRef = useRef(null);
   const terminalEndRef = useRef(null);
+  const [visualLogs, setVisualLogs] = useState([]); // For React/HTML console logs
+  const [srcDoc, setSrcDoc] = useState('');
 
-  // Initialize Socket
+  // Initialize Socket (Keep for C++)
   useEffect(() => {
     socketRef.current = io('http://localhost:3001');
-
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
     };
   }, []);
 
+  // Socket Events (C++)
   useEffect(() => {
     if (!socketRef.current) return;
 
@@ -335,34 +337,234 @@ function VideoDetail() {
     };
   }, []);
 
+  // Listen for iframe messages (React Logs)
+  useEffect(() => {
+    const handleMessage = (event) => {
+      if (event.data?.type === 'console') {
+        setVisualLogs(prev => [...prev, {
+          level: event.data.level,
+          args: event.data.args,
+          timestamp: new Date().toLocaleTimeString()
+        }]);
+        if (terminalEndRef.current) {
+          terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Fetch Video
   useEffect(() => {
     fetch(`/api/video/${id}`)
       .then(res => {
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
-        const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("Received non-JSON response from server");
-        }
         return res.json();
       })
       .then(data => {
         setVideo({ ...data, terminalOutput: '', isRunning: false });
+        // Set visual logs to empty
+        setVisualLogs([]);
+        // Generate srcDoc
+        generateSrcDoc(data);
       })
       .catch((err) => {
         console.error("Video Fetch Error:", err);
       });
   }, [id]);
 
-  if (!video) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-purple-900 pt-40">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500"></div>
-      </div>
-    );
-  }
+  const generateSrcDoc = (videoData) => {
+    if (!videoData?.codeData) return;
+    const code = videoData.codeData.fetchedCode || videoData.codeData.code;
+
+    console.log('🎨 Generating SrcDoc for:', videoData.codeLang); // DEBUG
+
+    if (videoData.codeLang === 'reactjs') {
+      // Preprocess: Remove imports/exports for Babel Standalone
+
+      // 1. Parsing and Mocking/Restoring Imports
+      let injectedCode = '';
+
+      // Regex to capture the header (stuff between import and from) and the library
+      const importAllRegex = /import\s+([\s\S]*?)\s+from\s+['"]([^'"]+)['"];?/g;
+
+      let match;
+      while ((match = importAllRegex.exec(code)) !== null) {
+        const rawImports = match[1];
+        const libraryName = match[2];
+
+        let defaultImport = null;
+        let namedImports = [];
+
+        // Detect Named Imports: { ... }
+        const namedMatch = rawImports.match(/\{([^}]+)\}/);
+        if (namedMatch) {
+          const insideBraces = namedMatch[1];
+          namedImports = insideBraces.split(',').map(i => i.trim()).filter(i => i);
+        }
+
+        // Detect Default Import: Everything outside { ... }
+        let outsideBraces = rawImports.replace(/\{[^}]+\}/g, '').replace(/,/g, '').trim();
+        if (outsideBraces) {
+          // Handle "import * as X" vs "import X"
+          if (outsideBraces.startsWith('* as ')) {
+            defaultImport = outsideBraces.replace('* as ', '').trim();
+          } else {
+            defaultImport = outsideBraces;
+          }
+        }
+
+        // --- GENERATE INJECTIONS ---
+
+        if (libraryName === 'react') {
+          // React is global, so 'import React' is handled.
+          // But 'import { useState }' needs restoration.
+          if (namedImports.length > 0) {
+            // Destructure from global React
+            // Handle "X as Y": import { useState as us } ... -> const { useState: us } = React;
+            const destructuring = namedImports.map(i => {
+              if (i.includes(' as ')) return i.replace(' as ', ': ');
+              return i;
+            }).join(', ');
+
+            injectedCode += `const { ${destructuring} } = React;\n`;
+          }
+        } else if (libraryName === 'react-dom') {
+          // Similarly for ReactDOM
+          if (namedImports.length > 0) {
+            injectedCode += `const { ${namedImports.join(', ')} } = ReactDOM;\n`;
+          }
+        } else {
+          // EXTERNAL LIBRARIES -> MOCK THEM
+          console.log(`📦 Mocking ${libraryName}: Default=${defaultImport}, Named=[${namedImports}]`);
+
+          const mockComponent = (name) => `const ${name} = (props) => <div style={{display:'inline-flex', alignItems:'center', justifyContent:'center', border:'1px dashed #ccc', padding:'4px', borderRadius:'4px', color: '#888', background:'#f5f5f5', fontSize:'10px' }}>📦 ${name}</div>;`;
+
+          if (defaultImport) {
+            injectedCode += mockComponent(defaultImport) + '\n';
+          }
+
+          namedImports.forEach(item => {
+            const name = item.split(' as ')[1] || item;
+            injectedCode += mockComponent(name) + '\n';
+          });
+        }
+      }
+
+      // 2. Remove all imports from the code
+      let cleanCode = code.replace(/import\s+[\s\S]*?from\s+['"].*?['"];?/g, '');
+
+      // 3. Inject our generated code at the top
+      cleanCode = injectedCode + '\n' + cleanCode;
+
+      let componentName = 'App';
+
+      // Handle export default function Name() {}
+      const defaultFuncMatch = cleanCode.match(/export\s+default\s+function\s+(\w+)/);
+      if (defaultFuncMatch) {
+        componentName = defaultFuncMatch[1];
+        cleanCode = cleanCode.replace(/export\s+default\s+function/g, 'function');
+      }
+
+      // Handle export default class Name {}
+      const defaultClassMatch = cleanCode.match(/export\s+default\s+class\s+(\w+)/);
+      if (defaultClassMatch) {
+        componentName = defaultClassMatch[1];
+        cleanCode = cleanCode.replace(/export\s+default\s+class/g, 'class');
+      }
+
+      // Handle export default Name;
+      const defaultExportMatch = cleanCode.match(/export\s+default\s+(\w+);?/);
+      if (defaultExportMatch) {
+        componentName = defaultExportMatch[1];
+        cleanCode = cleanCode.replace(/export\s+default\s+\w+;?/g, '');
+      }
+
+      // If we found a name that isn't App, alias it!
+      if (componentName !== 'App') {
+        cleanCode += `
+          // ID: Component Alias
+          const App = ${componentName};
+        `;
+      }
+
+      console.log('🧹 Cleaned Code:', cleanCode.slice(0, 100) + '...'); // DEBUG
+
+      const doc = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="UTF-8" />
+            <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+            <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+            <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+            <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+            <style>
+              body { background: white; color: #1a1a1a; padding: 20px; font-family: sans-serif; }
+              #root { height: 100%; }
+            </style>
+          </head>
+          <body>
+            <div id="root"></div>
+            <script>
+              // Console Proxy
+              const consoleProxy = (level, ...args) => {
+                // Convert args to strings for safe transport
+                const safeArgs = args.map(arg => {
+                  try {
+                    return typeof arg === 'object' ? JSON.stringify(arg) : String(arg);
+                  } catch (e) { return String(arg); }
+                });
+                window.parent.postMessage({ type: 'console', level, args: safeArgs }, '*');
+              };
+              console.log = (...args) => consoleProxy('log', ...args);
+              console.error = (...args) => consoleProxy('error', ...args);
+              console.warn = (...args) => consoleProxy('warn', ...args);
+              window.onerror = (msg) => consoleProxy('error', msg);
+            </script>
+            <script type="text/babel" data-presets="env,react,typescript">
+              ${cleanCode}
+              
+              // Attempt to render App
+              try {
+                const root = ReactDOM.createRoot(document.getElementById('root'));
+                if (typeof App !== 'undefined') {
+                  root.render(<App />);
+                  console.log("✅ React App Mounted successfully!");
+                } else {
+                  // If App is not defined, check if we captured a default export name
+                  // This part is handled by the regex logic above injecting 'const App = Name'
+                  // If that failed, look for any capitalized function
+                  const globals = Object.keys(window);
+                  const candidate = globals.find(key => 
+                     typeof window[key] === 'function' && /^[A-Z]/.test(key) && 
+                     !['React', 'ReactDOM', 'Babel'].includes(key)
+                  );
+                  
+                  if (candidate) {
+                      console.log("⚠️ App not found, trying to render detected component:", candidate);
+                      const Component = window[candidate];
+                      root.render(<Component />);
+                  } else {
+                      console.error("Could not find component 'App' or any suitable candidate.");
+                  }
+                }
+              } catch (err) {
+                console.error("Render Error: " + err.message);
+              }
+            </script>
+          </body>
+        </html>
+      `;
+      setSrcDoc(doc);
+    } else if (videoData.codeLang === 'html') {
+      setSrcDoc(code);
+    }
+  };
 
   const handleRun = () => {
-    if (!socketRef.current) return;
+    if (!socketRef.current || !video) return;
     setVideo(v => ({ ...v, isRunning: true, terminalOutput: '' }));
     socketRef.current.emit('run-cpp', {
       code: video.codeData?.fetchedCode || video.codeData?.code
@@ -382,156 +584,185 @@ function VideoDetail() {
       const input = e.target.value;
       if (socketRef.current && video.isRunning) {
         socketRef.current.emit('input', input);
-        // Echo input to terminal output for realism
         setVideo(v => ({
           ...v,
           terminalOutput: (v.terminalOutput || '') + input + '\n',
-          inputBuffer: '' // Clear input
+          inputBuffer: ''
         }));
       }
     }
   };
 
+  if (!video) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-purple-900 pt-40">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500"></div>
+      </div>
+    );
+  }
+
+  // Layout Helpers
+  const isHtml = video.codeLang === 'html';
+  const isReact = video.codeLang === 'reactjs';
+  const isCpp = video.codeLang === 'cpp' || video.codeLang === 'c++';
+
   return (
-    <div className="min-h-screen pt-32 lg:pt-40 pb-12 px-6 bg-gradient-to-br from-slate-900 to-purple-900">
+    <div className="min-h-screen pt-2 pb-12 px-6 bg-gradient-to-br from-slate-900 to-purple-900">
       <button
         onClick={() => navigate(-1)}
-        className="mb-16 inline-flex items-center gap-3 text-purple-400 hover:text-white font-bold text-xl pb-6 border-b-2 border-transparent hover:border-purple-400 transition-all duration-300"
+        className="mb-8 inline-flex items-center gap-3 text-purple-400 hover:text-white font-bold text-xl pb-2 border-b-2 border-transparent hover:border-purple-400 transition-all duration-300"
       >
         <ChevronLeft size={24} />
-        Back to Tutorials
+        Back
       </button>
 
-      <div className="max-w-7xl mx-auto space-y-16">
-        {/* Video Section */}
-        <div className="grid lg:grid-cols-2 gap-16 items-start">
-          <div className="space-y-6">
-            <h1 className="text-4xl font-black bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent leading-tight">
+      {/* Top Section: Info & Video */}
+      <div className="max-w-[1920px] mx-auto mb-8 flex flex-col items-center">
+        {/* Info */}
+        <div className="w-full flex justify-between items-end mb-6">
+          <div className="shrink-0">
+            <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 mb-2 truncate">
               {video.title}
             </h1>
-            <p className="text-gray-400 text-lg leading-relaxed">{video.description?.split('\n')[0]}</p>
-
-            <div className="flex gap-4">
-              <span className={`px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-wider ${video.codeLang === 'html' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
-                video.codeLang === 'reactjs' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
-                  video.codeLang === 'cpp' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
-                    'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+            <div className="flex gap-4 items-center">
+              <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${isHtml ? 'bg-orange-500/20 text-orange-300' :
+                isReact ? 'bg-emerald-500/20 text-emerald-300' :
+                  'bg-blue-500/20 text-blue-300'
                 }`}>
                 {video.codeLang}
               </span>
             </div>
           </div>
+        </div>
 
-          <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-4xl blur opacity-25 group-hover:opacity-75 transition duration-1000"></div>
-            <iframe
-              src={`https://www.youtube.com/embed/${video.videoId}?rel=0`}
-              className="relative w-full aspect-video rounded-3xl shadow-2xl border border-white/10"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
+        {/* Video Player - Centered & Large */}
+        <div className="relative w-full max-w-5xl aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl shrink-0">
+          <iframe
+            src={`https://www.youtube.com/embed/${video.videoId}?rel=0`}
+            className="w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      </div>
+
+      {/* Bottom Section: Code & Preview Side-by-Side */}
+      <div className="max-w-[1920px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        {/* Left Column: Code View */}
+        <div className="h-[600px] bg-[#1e1e1e] rounded-3xl overflow-hidden border border-white/10 shadow-xl flex flex-col">
+          <div className="flex items-center justify-between px-6 py-3 bg-white/5">
+            <div className="flex items-center gap-2">
+              <Code className="w-4 h-4 text-purple-400" />
+              <span className="font-bold text-sm text-gray-300">Source Code</span>
+            </div>
+          </div>
+          <div className="flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed custom-scrollbar text-gray-300">
+            <pre>{video.codeData?.fetchedCode || video.codeData?.code}</pre>
           </div>
         </div>
 
-        {/* Code & Output Section */}
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Code View */}
-          <div className="bg-[#1e1e1e] rounded-3xl overflow-hidden border border-white/10 shadow-2xl flex flex-col h-[600px]">
-            <div className="flex items-center justify-between px-6 py-4 bg-white/5 border-b border-white/5">
-              <div className="flex items-center gap-3">
-                <Code className="w-5 h-5 text-purple-400" />
-                <span className="font-bold text-gray-300">Source Code</span>
-              </div>
-              {video.codeData?.language && (
-                <span className="text-xs font-mono text-gray-500 uppercase">{video.codeData.language}</span>
-              )}
-            </div>
-            <div className="flex-1 overflow-auto p-6 font-mono text-sm leading-relaxed custom-scrollbar">
-              <pre className="text-gray-300">
-                {video.codeData?.fetchedCode || video.codeData?.code || '// No code available'}
-              </pre>
-            </div>
-          </div>
-
-          {/* Terminal / Preview */}
-          <div className="bg-[#1e1e1e] rounded-3xl overflow-hidden border border-white/10 shadow-2xl flex flex-col h-[600px]">
-            <div className="flex items-center justify-between px-6 py-4 bg-[#2d2d2d] border-b border-black/20">
-              <div className="flex items-center gap-3">
-                <div className="flex gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
-                  <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
-                  <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
+        {/* Right Column: Execution / Preview */}
+        <div className="h-[600px] flex flex-col gap-6">
+          {/* If HTML: Full Preview */}
+          {isHtml && (
+            <div className="h-full bg-white rounded-3xl overflow-hidden shadow-2xl border border-white/20 flex flex-col">
+              <div className="bg-gray-100 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Browser Preview</span>
+                <div className="flex gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-400"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-400"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-400"></div>
                 </div>
-                <span className="font-mono text-sm text-gray-400 ml-2">minicodehub-terminal</span>
               </div>
+              <iframe srcDoc={srcDoc} title="preview" className="flex-1 w-full border-none bg-white" sandbox="allow-scripts" />
+            </div>
+          )}
 
-              {/* Terminal Actions */}
-              {video.codeLang === 'cpp' && (
+          {/* If React: Full Preview (No Terminal) */}
+          {isReact && (
+            <div className="h-full bg-white rounded-3xl overflow-hidden shadow-2xl border border-white/20 flex flex-col">
+              <div className="bg-gray-100 px-4 py-2 border-b border-gray-200 flex items-center justify-between shrink-0">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">React Live Preview</span>
+                <div className="flex gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-400"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-400"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-400"></div>
+                </div>
+              </div>
+              <iframe srcDoc={srcDoc} title="preview" className="flex-1 w-full border-none bg-white" sandbox="allow-scripts" />
+            </div>
+          )}
+
+          {/* If C++: Full Terminal */}
+          {isCpp && (
+            <div className="h-full bg-[#1e1e1e] rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col">
+              <div className="flex items-center justify-between px-6 py-4 bg-[#2d2d2d] border-b border-black/20 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
+                    <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+                    <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
+                  </div>
+                  <span className="font-mono text-sm text-gray-400 ml-2">minicodehub-terminal</span>
+                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={handleRun}
                     disabled={video.isRunning}
-                    className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${video.isRunning
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${video.isRunning
                       ? 'bg-gray-700 text-gray-500 cursor-wait'
-                      : 'bg-green-600 hover:bg-green-500 text-white shadow-lg'
+                      : 'bg-green-600 hover:bg-green-500 text-white shadow-lg transform hover:scale-105'
                       }`}
                   >
-                    <Play size={10} className={video.isRunning ? 'animate-spin' : ''} />
-                    {video.isRunning ? 'Running...' : 'Run'}
+                    <Play size={12} className={video.isRunning ? 'animate-spin' : ''} />
+                    {video.isRunning ? 'Compiling...' : 'Run Code'}
                   </button>
                   {video.isRunning && (
                     <button
                       onClick={handleStop}
-                      className="px-3 py-1 rounded text-xs font-bold uppercase tracking-wider bg-red-600 hover:bg-red-500 text-white shadow-lg flex items-center gap-2"
+                      className="px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-red-600 hover:bg-red-500 text-white shadow-lg flex items-center gap-2"
                     >
-                      <Square size={10} fill="currentColor" /> Stop
+                      <Square size={12} fill="currentColor" /> Stop
                     </button>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
 
-            <div className="flex-1 bg-[#0c0c0c] p-4 font-mono text-sm overflow-auto custom-scrollbar" onClick={() => document.getElementById('terminal-input')?.focus()}>
-              {video.codeLang === 'html' ? (
-                <iframe
-                  srcDoc={video.codeData?.fetchedCode || video.codeData?.code}
-                  className="w-full h-full border-none bg-white rounded-lg"
-                  title="Output"
-                  sandbox="allow-scripts"
-                />
-              ) : (
-                <div className="flex flex-col min-h-full text-gray-300 font-mono">
-                  <div className="mb-4 text-gray-500">
-                    MinicodeHub v2.0.0 [Online Terminal]<br />
+              <div
+                className="flex-1 bg-[#0c0c0c] p-6 font-mono text-sm overflow-auto custom-scrollbar"
+                onClick={() => document.getElementById('terminal-input')?.focus()}
+              >
+                <div className="flex flex-col min-h-full text-gray-300">
+                  <div className="mb-4 text-gray-500 select-none">
+                    MinicodeHub v2.0.0 [C++ Execution Environment]<br />
                     Type input below when prompted.
                   </div>
 
-                  {/* Streamed Output */}
-                  <div className="whitespace-pre-wrap break-words text-gray-300">
+                  <div className="whitespace-pre-wrap break-words text-gray-300 leading-relaxed">
                     {video.terminalOutput}
                     <div ref={terminalEndRef} />
                   </div>
 
-                  {/* Active Input Line */}
                   {video.isRunning && (
-                    <div className="mt-1 flex items-center gap-1 group">
-                      <span className="text-green-500">➜</span>
+                    <div className="mt-2 flex items-center gap-2 group">
+                      <span className="text-green-500 font-bold">➜</span>
                       <input
                         id="terminal-input"
                         type="text"
                         value={video.inputBuffer || ''}
                         onChange={(e) => setVideo(v => ({ ...v, inputBuffer: e.target.value }))}
                         onKeyDown={handleTerminalInput}
-                        className="flex-1 bg-transparent border-none text-white focus:ring-0 p-0 font-mono caret-green-500 outline-none"
+                        className="flex-1 bg-transparent border-none text-white focus:ring-0 p-0 font-mono caret-green-500 outline-none placeholder-gray-700"
+                        placeholder="Type input here..."
                         autoComplete="off"
                         autoFocus
                       />
                     </div>
                   )}
                 </div>
-              )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
