@@ -1,7 +1,20 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate } from 'react-router-dom';
-import { Play, Code, Monitor, ChevronLeft, Square, Search, Filter } from 'lucide-react';
+import { Sandpack, SandpackProvider, SandpackLayout, SandpackCodeEditor, SandpackPreview } from "@codesandbox/sandpack-react";
+import { dracula as draculaTheme } from "@codesandbox/sandpack-themes";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate, useLocation } from 'react-router-dom';
+import { Play, Code, Monitor, ChevronLeft, Square, Search, Filter, Github, Linkedin, Mail, Youtube } from 'lucide-react';
 import io from 'socket.io-client';
+
+// ScrollToTop Component
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
 
 // Navbar (unchanged - perfect)
 function Navbar({ filter, setFilter, search, setSearch, stats, scrollDirection, isScrolled }) {
@@ -9,53 +22,111 @@ function Navbar({ filter, setFilter, search, setSearch, stats, scrollDirection, 
     <header className={`
       fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out backdrop-blur-xl
       ${isScrolled
-        ? 'py-2 shadow-2xl bg-black/90 border-b border-purple-500/70 h-16'
-        : 'py-4 bg-black/50 h-20'
+        ? 'py-3 md:py-2 shadow-2xl bg-black/90 border-b border-purple-500/70 h-auto md:h-16'
+        : 'py-4 bg-black/50 h-auto md:h-20'
       }
       ${scrollDirection === 'down' && isScrolled ? '-translate-y-full' : 'translate-y-0'}
     `}>
-      <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
-        <div className={`transition-all duration-300 ${isScrolled ? 'scale-90 opacity-90' : 'scale-100 opacity-100'}`}>
-          <h1 className={`font-black bg-gradient-to-r from-purple-400 via-pink-400 to-purple-500 bg-clip-text text-transparent drop-shadow-2xl transition-all ${isScrolled ? 'text-xl leading-tight' : 'text-3xl md:text-4xl leading-tight'
-            }`}>
+      <div className="max-w-7xl mx-auto px-4 h-full flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8">
+        {/* Brand */}
+        <div className={`transition-all duration-300 w-full md:w-auto flex justify-center md:justify-start ${isScrolled ? 'md:scale-90 md:opacity-90' : 'md:scale-100 md:opacity-100'}`}>
+          <h1 className={`font-black bg-gradient-to-r from-purple-400 via-pink-400 to-purple-500 bg-clip-text text-transparent drop-shadow-2xl transition-all text-2xl md:text-3xl lg:text-4xl leading-tight`}>
             MiniCodeHub
           </h1>
-          <p className={`text-purple-300 text-xs transition-all ${isScrolled ? 'opacity-0 scale-75 -translate-y-1' : 'opacity-100 scale-100'} hidden lg:block`}>
-            Live Code Demos
-          </p>
         </div>
 
-        <div className="flex items-center gap-3 flex-1 max-w-md justify-center">
-          <div className="relative flex-1">
-            <svg className={`absolute left-3 top-1/2 -translate-y-1/2 transition-all w-${isScrolled ? '4' : '5'} h-${isScrolled ? '4' : '5'} text-gray-400`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {/* Search */}
+        <div className="flex items-center gap-3 w-full md:flex-1 md:max-w-md justify-center order-2 md:order-none">
+          <div className="relative w-full">
+            <svg className={`absolute left-3 top-1/2 -translate-y-1/2 transition-all w-5 h-5 text-gray-400`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
               placeholder={isScrolled ? "Search..." : "Search HTML, React, C++..."}
-              className={`w-full pl-${isScrolled ? '10' : '12'} pr-4 py-${isScrolled ? '1.5' : '3'} bg-white/10 backdrop-blur-md border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-${isScrolled ? 'base' : 'lg'} shadow-lg`}
+              className={`w-full pl-10 pr-4 py-2 md:py-${isScrolled ? '1.5' : '3'} bg-white/10 backdrop-blur-md border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-base shadow-lg`}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
         </div>
 
-        <div className={`flex bg-white/10 backdrop-blur-xl rounded-2xl p-${isScrolled ? '1' : '2'} border border-white/30 shadow-xl transition-all overflow-hidden ${isScrolled ? 'w-80 h-12' : 'w-96 h-16'}`}>
-          <button onClick={() => setFilter('all')} className={`px-${isScrolled ? '3' : '5'} py-${isScrolled ? '1' : '3'} rounded-xl font-bold text-xs transition-all flex items-center gap-1 shadow-sm ${filter === 'all' ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-purple-500/50' : 'text-purple-200 hover:text-white hover:bg-white/30 hover:shadow-md'}`}>
-            ALL <span className="text-xs bg-black/50 px-1 py-0.5 rounded min-w-[2rem] font-bold">{stats.total}</span>
+        {/* Filters */}
+        <div className={`flex bg-white/10 backdrop-blur-xl rounded-2xl p-1 md:p-${isScrolled ? '1' : '2'} border border-white/30 shadow-xl transition-all overflow-x-auto hide-scrollbar w-full md:w-auto ${isScrolled ? 'md:h-12' : 'md:h-16'} order-3 md:order-none justify-between md:justify-start gap-1`}>
+          <button onClick={() => setFilter('all')} className={`flex-1 md:flex-none px-3 md:px-${isScrolled ? '3' : '5'} py-2 md:py-${isScrolled ? '1' : '3'} rounded-xl font-bold text-[10px] md:text-xs transition-all flex items-center justify-center gap-1 shadow-sm whitespace-nowrap ${filter === 'all' ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-purple-500/50' : 'text-purple-200 hover:text-white hover:bg-white/30 hover:shadow-md'}`}>
+            ALL <span className="text-[9px] md:text-xs bg-black/50 px-1 py-0.5 rounded min-w-[1.5rem] font-bold">{stats.total}</span>
           </button>
-          <button onClick={() => setFilter('html')} className={`px-${isScrolled ? '2' : '4'} py-${isScrolled ? '1' : '3'} rounded-xl font-bold text-xs flex items-center gap-1 transition-all ${filter === 'html' ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-orange-500/50' : 'text-orange-300 hover:text-orange-100 hover:bg-orange-500/20 hover:shadow-md'}`}>
-            HTML <span className="text-xs bg-black/50 px-1 py-0.5 rounded min-w-[1.5rem] font-bold">{stats.html}</span>
+          <button onClick={() => setFilter('html')} className={`flex-1 md:flex-none px-2 md:px-${isScrolled ? '2' : '4'} py-2 md:py-${isScrolled ? '1' : '3'} rounded-xl font-bold text-[10px] md:text-xs flex items-center justify-center gap-1 transition-all whitespace-nowrap ${filter === 'html' ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-orange-500/50' : 'text-orange-300 hover:text-orange-100 hover:bg-orange-500/20 hover:shadow-md'}`}>
+            HTML <span className="text-[9px] md:text-xs bg-black/50 px-1 py-0.5 rounded min-w-[1.5rem] font-bold">{stats.html}</span>
           </button>
-          <button onClick={() => setFilter('reactjs')} className={`px-${isScrolled ? '2' : '4'} py-${isScrolled ? '1' : '3'} rounded-xl font-bold text-xs flex items-center gap-1 transition-all ${filter === 'reactjs' ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-emerald-500/50' : 'text-emerald-300 hover:text-emerald-100 hover:bg-emerald-500/20 hover:shadow-md'}`}>
-            React <span className="text-xs bg-black/50 px-1 py-0.5 rounded min-w-[1.5rem] font-bold">{stats.react}</span>
+          <button onClick={() => setFilter('reactjs')} className={`flex-1 md:flex-none px-2 md:px-${isScrolled ? '2' : '4'} py-2 md:py-${isScrolled ? '1' : '3'} rounded-xl font-bold text-[10px] md:text-xs flex items-center justify-center gap-1 transition-all whitespace-nowrap ${filter === 'reactjs' ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-emerald-500/50' : 'text-emerald-300 hover:text-emerald-100 hover:bg-emerald-500/20 hover:shadow-md'}`}>
+            React <span className="text-[9px] md:text-xs bg-black/50 px-1 py-0.5 rounded min-w-[1.5rem] font-bold">{stats.react}</span>
           </button>
-          <button onClick={() => setFilter('cpp')} className={`px-${isScrolled ? '2' : '4'} py-${isScrolled ? '1' : '3'} rounded-xl font-bold text-xs flex items-center gap-1 transition-all ${filter === 'cpp' ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/50' : 'text-blue-300 hover:text-blue-100 hover:bg-blue-500/20 hover:shadow-md'}`}>
-            C++ <span className="text-xs bg-black/50 px-1 py-0.5 rounded min-w-[1.5rem] font-bold">{stats.cpp}</span>
+          <button onClick={() => setFilter('cpp')} className={`flex-1 md:flex-none px-2 md:px-${isScrolled ? '2' : '4'} py-2 md:py-${isScrolled ? '1' : '3'} rounded-xl font-bold text-[10px] md:text-xs flex items-center justify-center gap-1 transition-all whitespace-nowrap ${filter === 'cpp' ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/50' : 'text-blue-300 hover:text-blue-100 hover:bg-blue-500/20 hover:shadow-md'}`}>
+            C++ <span className="text-[9px] md:text-xs bg-black/50 px-1 py-0.5 rounded min-w-[1.5rem] font-bold">{stats.cpp}</span>
           </button>
         </div>
       </div>
     </header>
+  );
+}
+
+function AboutMe() {
+  return (
+    <section className="max-w-4xl mx-auto px-3 sm:px-6 mt-24 mb-12">
+      <div className="relative group">
+        <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-[2rem] blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
+        <div className="relative bg-black/40 backdrop-blur-xl rounded-[2rem] p-5 sm:p-8 md:p-12 border border-white/10 ring-1 ring-white/20">
+
+          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
+            <div className="flex-1 text-center md:text-left">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400 mb-4">
+                About Me
+              </h2>
+              <p className="text-gray-300 text-base sm:text-lg leading-relaxed mb-6">
+                Hi, I'm <span className="text-white font-bold">Satchit Kamat</span>. I build interactive web experiences and love simplifying complex coding concepts. This platform is my playground for sharing tutorials from my YouTube channel <span className="text-white font-bold">MiniCodeHub</span>.
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 sm:gap-4">
+                <a href="https://youtube.com/@MiniCodeHub" target="_blank" rel="noopener noreferrer"
+                  className="p-2 sm:p-3 bg-white/5 rounded-xl hover:bg-white/20 hover:scale-110 transition-all text-red-500 hover:text-red-400 border border-white/10">
+                  <Youtube className="w-5 h-5 sm:w-6 sm:h-6" />
+                </a>
+                <a href="https://github.com/satchitkamat" target="_blank" rel="noopener noreferrer"
+                  className="p-2 sm:p-3 bg-white/5 rounded-xl hover:bg-white/20 hover:scale-110 transition-all text-gray-300 hover:text-white border border-white/10" title="Personal GitHub">
+                  <Github className="w-5 h-5 sm:w-6 sm:h-6" />
+                </a>
+                <a href="https://github.com/MiniCodeHub" target="_blank" rel="noopener noreferrer"
+                  className="p-2 sm:p-3 bg-white/5 rounded-xl hover:bg-white/20 hover:scale-110 transition-all text-gray-300 hover:text-white border border-white/10" title="MiniCodeHub GitHub">
+                  <Github className="w-5 h-5 sm:w-6 sm:h-6" />
+                </a>
+                <a href="https://www.linkedin.com/in/satchitkamat-kamat-815256390" target="_blank" rel="noopener noreferrer"
+                  className="p-2 sm:p-3 bg-white/5 rounded-xl hover:bg-white/20 hover:scale-110 transition-all text-blue-300 hover:text-blue-400 border border-white/10">
+                  <Linkedin className="w-5 h-5 sm:w-6 sm:h-6" />
+                </a>
+                <a href="mailto:contact@minicodehub.com"
+                  className="p-2 sm:p-3 bg-white/5 rounded-xl hover:bg-white/20 hover:scale-110 transition-all text-pink-300 hover:text-pink-400 border border-white/10">
+                  <Mail className="w-5 h-5 sm:w-6 sm:h-6" />
+                </a>
+              </div>
+            </div>
+
+            <div className="shrink-0 relative order-first md:order-none mt-4 md:mt-0">
+              <div className="w-32 h-32 md:w-40 md:h-40 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 p-1 shadow-2xl overflow-hidden">
+                <div className="w-full h-full rounded-full bg-gray-900 flex items-center justify-center overflow-hidden">
+                  <img
+                    src="/profile.png"
+                    alt="Satchit Kamat"
+                    className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -72,7 +143,6 @@ function Home() {
   const [scrollDirection, setScrollDirection] = useState('up');
   const [isScrolled, setIsScrolled] = useState(false);
 
-  // ✅ FIXED: useCallback WITHOUT currentPage dependency
   const fetchVideos = useCallback(async () => {
     setLoading(true);
     try {
@@ -118,9 +188,8 @@ function Home() {
     } finally {
       setLoading(false);
     }
-  }, [search, filter, currentPage]); // ✅ FIXED: Included currentPage!
+  }, [search, filter, currentPage]);
 
-  // ✅ FIXED SCROLL HANDLER
   useEffect(() => {
     let ticking = false;
     const updateScroll = () => {
@@ -142,14 +211,14 @@ function Home() {
     return () => window.removeEventListener('scroll', updateScroll);
   }, [lastScrollY]);
 
-  // ✅ FIXED: SEPARATE useEffect for pagination
   useEffect(() => {
     console.log('📄 Page changed to:', currentPage, 'Filter:', filter); // DEBUG
     fetchVideos();
-  }, [currentPage, search, filter]); // ✅ Now works perfectly!
+    window.scrollTo(0, 0); // Instant scroll to top on page key change
+  }, [currentPage, search, filter]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/30 to-slate-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/30 to-slate-900 text-white overflow-x-hidden">
       <Navbar
         filter={filter}
         setFilter={setFilter}
@@ -160,9 +229,9 @@ function Home() {
         isScrolled={isScrolled}
       />
 
-      <main className="pt-24 lg:pt-28 pb-12">
+      <main className="pt-48 md:pt-24 lg:pt-28 pb-12">
         {/* Filter Status */}
-        <div className="max-w-7xl mx-auto px-6 mb-16 pt-8">
+        <div className="max-w-7xl mx-auto px-6 mb-8 pt-8 flex justify-center md:justify-start">
           <div className={`inline-flex items-center gap-4 px-8 py-5 rounded-3xl backdrop-blur-xl font-bold text-xl bg-white/10 border border-white/20 shadow-2xl ${filter !== 'all' ? 'border-purple-500/50 bg-purple-500/10 ring-2 ring-purple-500/30' : ''
             }`}>
             <div className={`w-6 h-6 rounded-full shadow-lg ${filter === 'html' ? 'bg-orange-400' :
@@ -190,7 +259,68 @@ function Home() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8 mb-16">
+              {/* ✅ TOP PAGINATION BUTTONS */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 bg-white/5 backdrop-blur-xl rounded-3xl p-4 sm:p-8 border border-white/20 shadow-2xl mx-4 sm:mx-0 mb-8">
+                  <div className="text-purple-300 font-bold text-base sm:text-xl text-center">
+                    Page {currentPage} of {totalPages} • {videos.length} tutorials
+                  </div>
+
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1 || loading}
+                      className={`px-4 py-2 sm:px-6 sm:py-3 rounded-2xl font-bold text-sm sm:text-lg transition-all shadow-lg flex items-center gap-2 ${currentPage === 1 || loading
+                        ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-purple-500/50 hover:shadow-xl'
+                        }`}
+                    >
+                      <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                      Previous
+                    </button>
+
+                    {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+                      const pageNum = currentPage <= 4
+                        ? i + 1
+                        : currentPage >= totalPages - 3
+                          ? totalPages - 6 + i
+                          : currentPage - 3 + i;
+
+                      if (pageNum < 1 || pageNum > totalPages) return null;
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          disabled={loading}
+                          className={`hidden sm:flex w-14 h-14 rounded-2xl font-bold text-lg transition-all shadow-lg items-center justify-center ${currentPage === pageNum
+                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-purple-500/50 scale-110 ring-4 ring-purple-500/30'
+                            : loading
+                              ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed'
+                              : 'bg-white/10 hover:bg-white/20 text-purple-200 hover:text-white hover:shadow-xl hover:scale-105'
+                            }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages || loading}
+                      className={`px-4 py-2 sm:px-6 sm:py-3 rounded-2xl font-bold text-sm sm:text-lg transition-all shadow-lg flex items-center gap-2 ${currentPage === totalPages || loading
+                        ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-purple-500/50 hover:shadow-xl'
+                        }`}
+                    >
+                      Next
+                      <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 rotate-180" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
                 {videos.map((video) => (
                   <Link key={video.id} to={`/video/${video.id}`} className="group block h-full">
                     <div className="bg-white/10 backdrop-blur-md rounded-3xl overflow-hidden border border-white/20 hover:border-purple-500/50 hover:bg-white/20 transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl h-full flex flex-col">
@@ -223,23 +353,23 @@ function Home() {
                 ))}
               </div>
 
-              {/* ✅ FIXED PAGINATION BUTTONS */}
+              {/* ✅ BOTTOM PAGINATION BUTTONS */}
               {totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-6 bg-white/5 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl">
-                  <div className="text-purple-300 font-bold text-xl">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 bg-white/5 backdrop-blur-xl rounded-3xl p-4 sm:p-8 border border-white/20 shadow-2xl mx-4 sm:mx-0">
+                  <div className="text-purple-300 font-bold text-base sm:text-xl text-center">
                     Page {currentPage} of {totalPages} • {videos.length} tutorials
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center">
                     <button
                       onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                       disabled={currentPage === 1 || loading}
-                      className={`px-6 py-3 rounded-2xl font-bold text-lg transition-all shadow-lg flex items-center gap-2 ${currentPage === 1 || loading
+                      className={`px-4 py-2 sm:px-6 sm:py-3 rounded-2xl font-bold text-sm sm:text-lg transition-all shadow-lg flex items-center gap-2 ${currentPage === 1 || loading
                         ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed'
                         : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-purple-500/50 hover:shadow-xl'
                         }`}
                     >
-                      <ChevronLeft className="w-5 h-5" />
+                      <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                       Previous
                     </button>
 
@@ -257,7 +387,7 @@ function Home() {
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
                           disabled={loading}
-                          className={`w-14 h-14 rounded-2xl font-bold text-lg transition-all shadow-lg flex items-center justify-center ${currentPage === pageNum
+                          className={`hidden sm:flex w-14 h-14 rounded-2xl font-bold text-lg transition-all shadow-lg items-center justify-center ${currentPage === pageNum
                             ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-purple-500/50 scale-110 ring-4 ring-purple-500/30'
                             : loading
                               ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed'
@@ -272,13 +402,13 @@ function Home() {
                     <button
                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                       disabled={currentPage === totalPages || loading}
-                      className={`px-6 py-3 rounded-2xl font-bold text-lg transition-all shadow-lg flex items-center gap-2 ${currentPage === totalPages || loading
+                      className={`px-4 py-2 sm:px-6 sm:py-3 rounded-2xl font-bold text-sm sm:text-lg transition-all shadow-lg flex items-center gap-2 ${currentPage === totalPages || loading
                         ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed'
                         : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-purple-500/50 hover:shadow-xl'
                         }`}
                     >
                       Next
-                      <ChevronLeft className="w-5 h-5 rotate-180" />
+                      <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 rotate-180" />
                     </button>
                   </div>
                 </div>
@@ -286,32 +416,36 @@ function Home() {
             </>
           )}
         </div>
+
+        <AboutMe />
       </main>
     </div>
   );
 }
 
-// VideoDetail with Socket.IO
-function VideoDetail() {
+const VideoDetail = () => {
   const { id } = useParams();
-  const [video, setVideo] = useState(null);
   const navigate = useNavigate();
+  const [video, setVideo] = useState(null);
   const socketRef = useRef(null);
   const terminalEndRef = useRef(null);
-  const [visualLogs, setVisualLogs] = useState([]); // For React/HTML console logs
-  const [srcDoc, setSrcDoc] = useState('');
 
-  // Initialize Socket (Keep for C++)
+  useEffect(() => {
+    fetch(`/api/video/${id}`)
+      .then(res => {
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
+        setVideo({ ...data, terminalOutput: '', isRunning: false });
+      })
+      .catch((err) => {
+        console.error("Video Fetch Error:", err);
+      });
+  }, [id]);
+
   useEffect(() => {
     socketRef.current = io('http://localhost:3001');
-    return () => {
-      if (socketRef.current) socketRef.current.disconnect();
-    };
-  }, []);
-
-  // Socket Events (C++)
-  useEffect(() => {
-    if (!socketRef.current) return;
 
     socketRef.current.on('output', (data) => {
       setVideo(v => {
@@ -321,7 +455,6 @@ function VideoDetail() {
           terminalOutput: (v.terminalOutput || '') + data
         };
       });
-      // Auto-scroll
       if (terminalEndRef.current) {
         terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
       }
@@ -332,236 +465,11 @@ function VideoDetail() {
     });
 
     return () => {
-      socketRef.current.off('output');
-      socketRef.current.off('done');
-    };
-  }, []);
-
-  // Listen for iframe messages (React Logs)
-  useEffect(() => {
-    const handleMessage = (event) => {
-      if (event.data?.type === 'console') {
-        setVisualLogs(prev => [...prev, {
-          level: event.data.level,
-          args: event.data.args,
-          timestamp: new Date().toLocaleTimeString()
-        }]);
-        if (terminalEndRef.current) {
-          terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
-        }
+      if (socketRef.current) {
+        socketRef.current.disconnect();
       }
     };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
   }, []);
-
-  // Fetch Video
-  useEffect(() => {
-    fetch(`/api/video/${id}`)
-      .then(res => {
-        if (!res.ok) throw new Error(`Server returned ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        setVideo({ ...data, terminalOutput: '', isRunning: false });
-        // Set visual logs to empty
-        setVisualLogs([]);
-        // Generate srcDoc
-        generateSrcDoc(data);
-      })
-      .catch((err) => {
-        console.error("Video Fetch Error:", err);
-      });
-  }, [id]);
-
-  const generateSrcDoc = (videoData) => {
-    if (!videoData?.codeData) return;
-    const code = videoData.codeData.fetchedCode || videoData.codeData.code;
-
-    console.log('🎨 Generating SrcDoc for:', videoData.codeLang); // DEBUG
-
-    if (videoData.codeLang === 'reactjs') {
-      // Preprocess: Remove imports/exports for Babel Standalone
-
-      // 1. Parsing and Mocking/Restoring Imports
-      let injectedCode = '';
-
-      // Regex to capture the header (stuff between import and from) and the library
-      const importAllRegex = /import\s+([\s\S]*?)\s+from\s+['"]([^'"]+)['"];?/g;
-
-      let match;
-      while ((match = importAllRegex.exec(code)) !== null) {
-        const rawImports = match[1];
-        const libraryName = match[2];
-
-        let defaultImport = null;
-        let namedImports = [];
-
-        // Detect Named Imports: { ... }
-        const namedMatch = rawImports.match(/\{([^}]+)\}/);
-        if (namedMatch) {
-          const insideBraces = namedMatch[1];
-          namedImports = insideBraces.split(',').map(i => i.trim()).filter(i => i);
-        }
-
-        // Detect Default Import: Everything outside { ... }
-        let outsideBraces = rawImports.replace(/\{[^}]+\}/g, '').replace(/,/g, '').trim();
-        if (outsideBraces) {
-          // Handle "import * as X" vs "import X"
-          if (outsideBraces.startsWith('* as ')) {
-            defaultImport = outsideBraces.replace('* as ', '').trim();
-          } else {
-            defaultImport = outsideBraces;
-          }
-        }
-
-        // --- GENERATE INJECTIONS ---
-
-        if (libraryName === 'react') {
-          // React is global, so 'import React' is handled.
-          // But 'import { useState }' needs restoration.
-          if (namedImports.length > 0) {
-            // Destructure from global React
-            // Handle "X as Y": import { useState as us } ... -> const { useState: us } = React;
-            const destructuring = namedImports.map(i => {
-              if (i.includes(' as ')) return i.replace(' as ', ': ');
-              return i;
-            }).join(', ');
-
-            injectedCode += `const { ${destructuring} } = React;\n`;
-          }
-        } else if (libraryName === 'react-dom') {
-          // Similarly for ReactDOM
-          if (namedImports.length > 0) {
-            injectedCode += `const { ${namedImports.join(', ')} } = ReactDOM;\n`;
-          }
-        } else {
-          // EXTERNAL LIBRARIES -> MOCK THEM
-          console.log(`📦 Mocking ${libraryName}: Default=${defaultImport}, Named=[${namedImports}]`);
-
-          const mockComponent = (name) => `const ${name} = (props) => <div style={{display:'inline-flex', alignItems:'center', justifyContent:'center', border:'1px dashed #ccc', padding:'4px', borderRadius:'4px', color: '#888', background:'#f5f5f5', fontSize:'10px' }}>📦 ${name}</div>;`;
-
-          if (defaultImport) {
-            injectedCode += mockComponent(defaultImport) + '\n';
-          }
-
-          namedImports.forEach(item => {
-            const name = item.split(' as ')[1] || item;
-            injectedCode += mockComponent(name) + '\n';
-          });
-        }
-      }
-
-      // 2. Remove all imports from the code
-      let cleanCode = code.replace(/import\s+[\s\S]*?from\s+['"].*?['"];?/g, '');
-
-      // 3. Inject our generated code at the top
-      cleanCode = injectedCode + '\n' + cleanCode;
-
-      let componentName = 'App';
-
-      // Handle export default function Name() {}
-      const defaultFuncMatch = cleanCode.match(/export\s+default\s+function\s+(\w+)/);
-      if (defaultFuncMatch) {
-        componentName = defaultFuncMatch[1];
-        cleanCode = cleanCode.replace(/export\s+default\s+function/g, 'function');
-      }
-
-      // Handle export default class Name {}
-      const defaultClassMatch = cleanCode.match(/export\s+default\s+class\s+(\w+)/);
-      if (defaultClassMatch) {
-        componentName = defaultClassMatch[1];
-        cleanCode = cleanCode.replace(/export\s+default\s+class/g, 'class');
-      }
-
-      // Handle export default Name;
-      const defaultExportMatch = cleanCode.match(/export\s+default\s+(\w+);?/);
-      if (defaultExportMatch) {
-        componentName = defaultExportMatch[1];
-        cleanCode = cleanCode.replace(/export\s+default\s+\w+;?/g, '');
-      }
-
-      // If we found a name that isn't App, alias it!
-      if (componentName !== 'App') {
-        cleanCode += `
-          // ID: Component Alias
-          const App = ${componentName};
-        `;
-      }
-
-      console.log('🧹 Cleaned Code:', cleanCode.slice(0, 100) + '...'); // DEBUG
-
-      const doc = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="UTF-8" />
-            <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-            <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-            <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-            <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-            <style>
-              body { background: white; color: #1a1a1a; padding: 20px; font-family: sans-serif; }
-              #root { height: 100%; }
-            </style>
-          </head>
-          <body>
-            <div id="root"></div>
-            <script>
-              // Console Proxy
-              const consoleProxy = (level, ...args) => {
-                // Convert args to strings for safe transport
-                const safeArgs = args.map(arg => {
-                  try {
-                    return typeof arg === 'object' ? JSON.stringify(arg) : String(arg);
-                  } catch (e) { return String(arg); }
-                });
-                window.parent.postMessage({ type: 'console', level, args: safeArgs }, '*');
-              };
-              console.log = (...args) => consoleProxy('log', ...args);
-              console.error = (...args) => consoleProxy('error', ...args);
-              console.warn = (...args) => consoleProxy('warn', ...args);
-              window.onerror = (msg) => consoleProxy('error', msg);
-            </script>
-            <script type="text/babel" data-presets="env,react,typescript">
-              ${cleanCode}
-              
-              // Attempt to render App
-              try {
-                const root = ReactDOM.createRoot(document.getElementById('root'));
-                if (typeof App !== 'undefined') {
-                  root.render(<App />);
-                  console.log("✅ React App Mounted successfully!");
-                } else {
-                  // If App is not defined, check if we captured a default export name
-                  // This part is handled by the regex logic above injecting 'const App = Name'
-                  // If that failed, look for any capitalized function
-                  const globals = Object.keys(window);
-                  const candidate = globals.find(key => 
-                     typeof window[key] === 'function' && /^[A-Z]/.test(key) && 
-                     !['React', 'ReactDOM', 'Babel'].includes(key)
-                  );
-                  
-                  if (candidate) {
-                      console.log("⚠️ App not found, trying to render detected component:", candidate);
-                      const Component = window[candidate];
-                      root.render(<Component />);
-                  } else {
-                      console.error("Could not find component 'App' or any suitable candidate.");
-                  }
-                }
-              } catch (err) {
-                console.error("Render Error: " + err.message);
-              }
-            </script>
-          </body>
-        </html>
-      `;
-      setSrcDoc(doc);
-    } else if (videoData.codeLang === 'html') {
-      setSrcDoc(code);
-    }
-  };
 
   const handleRun = () => {
     if (!socketRef.current || !video) return;
@@ -593,6 +501,45 @@ function VideoDetail() {
     }
   };
 
+  const isHtml = video?.codeLang === 'html';
+  const isReact = video?.codeLang === 'reactjs';
+  const isCpp = video?.codeLang === 'cpp' || video?.codeLang === 'c++';
+
+  const sandpackFiles = useMemo(() => {
+    if (!video?.codeData) return {};
+    const code = video.codeData.fetchedCode || video.codeData.code;
+
+    if (isReact) {
+      return {
+        "App.tsx": code,
+        "public/index.html": `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Minicodehub Showcase</title>
+    <style>
+      html, body, #root {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>`,
+      };
+    }
+    if (isHtml) {
+      return {
+        "index.html": code
+      };
+    }
+    return {};
+  }, [video, isReact, isHtml]);
+
   if (!video) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-purple-900 pt-40">
@@ -601,16 +548,11 @@ function VideoDetail() {
     );
   }
 
-  // Layout Helpers
-  const isHtml = video.codeLang === 'html';
-  const isReact = video.codeLang === 'reactjs';
-  const isCpp = video.codeLang === 'cpp' || video.codeLang === 'c++';
-
   return (
-    <div className="min-h-screen pt-2 pb-12 px-6 bg-gradient-to-br from-slate-900 to-purple-900">
+    <div className="min-h-screen pt-2 pb-12 px-3 sm:px-4 md:px-6 bg-gradient-to-br from-slate-900 to-purple-900 overflow-x-hidden">
       <button
         onClick={() => navigate(-1)}
-        className="mb-8 inline-flex items-center gap-3 text-purple-400 hover:text-white font-bold text-xl pb-2 border-b-2 border-transparent hover:border-purple-400 transition-all duration-300"
+        className="mb-8 inline-flex items-center gap-3 text-purple-400 hover:text-white font-bold text-xl py-4 px-3 border-b-2 border-transparent hover:pr-8 hover:border-purple-400 transition-all duration-500 ease-in-out"
       >
         <ChevronLeft size={24} />
         Back
@@ -647,56 +589,90 @@ function VideoDetail() {
       </div>
 
       {/* Bottom Section: Code & Preview Side-by-Side */}
-      <div className="max-w-[1920px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        {/* Left Column: Code View */}
-        <div className="h-[600px] bg-[#1e1e1e] rounded-3xl overflow-hidden border border-white/10 shadow-xl flex flex-col">
-          <div className="flex items-center justify-between px-6 py-3 bg-white/5">
-            <div className="flex items-center gap-2">
-              <Code className="w-4 h-4 text-purple-400" />
-              <span className="font-bold text-sm text-gray-300">Source Code</span>
-            </div>
-          </div>
-          <div className="flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed custom-scrollbar text-gray-300">
-            <pre>{video.codeData?.fetchedCode || video.codeData?.code}</pre>
-          </div>
-        </div>
+      <div className="max-w-[1920px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 items-start">
 
-        {/* Right Column: Execution / Preview */}
-        <div className="h-[600px] flex flex-col gap-6">
-          {/* If HTML: Full Preview */}
-          {isHtml && (
-            <div className="h-full bg-white rounded-3xl overflow-hidden shadow-2xl border border-white/20 flex flex-col">
-              <div className="bg-gray-100 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Browser Preview</span>
-                <div className="flex gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-400"></div>
-                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-400"></div>
-                  <div className="w-2.5 h-2.5 rounded-full bg-green-400"></div>
+        {/* React/HTML: Sandpack Full Width */}
+        {(isReact || isHtml) && (
+          <div className="col-span-1 lg:col-span-2 h-auto min-h-fit lg:h-fit rounded-3xl overflow-hidden border border-white/10 shadow-xl bg-[#1e1e1e]">
+            {isHtml ? (
+              <Sandpack
+                template="static"
+                theme={draculaTheme}
+                files={sandpackFiles}
+                options={{
+                  showNavigator: true,
+                  showTabs: true,
+                  editorHeight: 1400, // Keep fixed for desktop, Sandpack handles internal responsiveness fairly well, but we might need to adjust if issues persist
+                  showLineNumbers: true,
+                  wrapContent: true,
+                }}
+              />
+            ) : (
+              <SandpackProvider
+                template="react-ts"
+                theme={draculaTheme}
+                files={sandpackFiles}
+                customSetup={{
+                  dependencies: {
+                    "lucide-react": "latest",
+                    "tailwindcss": "latest",
+                    "clsx": "latest",
+                    "tailwind-merge": "latest",
+                    "@babel/runtime": "latest",
+                    "framer-motion": "latest",
+                    "react-parallax-tilt": "latest",
+                    "react-tilt": "latest"
+                  }
+                }}
+                options={{
+                  externalResources: ["https://cdn.tailwindcss.com"]
+                }}
+              >
+                <div className="flex flex-col lg:flex-row h-fit w-full">
+                  <div className="flex-1 h-1/2 lg:h-full overflow-hidden order-2 lg:order-1">
+                    <SandpackCodeEditor
+                      showTabs
+                      showLineNumbers
+                      showInlineErrors
+                      wrapContent
+                      closableTabs
+                      readOnly={true}
+                      style={{ height: '100vh' }}
+                    />
+                  </div>
+                  <div className="flex-1 h-full lg:h-full order-1 lg:order-2">
+                    <SandpackPreview
+                      showNavigator={true}
+                      showOpenInCodeSandbox={false}
+                      style={{ height: '100vh' }}
+                    />
+                  </div>
+                </div>
+              </SandpackProvider>
+            )}
+          </div>
+        )}
+
+        {/* C++: Keep Original Grid Layout */}
+        {isCpp && (
+          <>
+            {/* Left Column: Code View */}
+            <div className="h-fit bg-[#1e1e1e] rounded-3xl overflow-hidden border border-white/10 shadow-xl flex flex-col">
+              <div className="flex items-center justify-between px-6 py-3 bg-white/5">
+                <div className="flex items-center gap-2">
+                  <Code className="w-4 h-4 text-purple-400" />
+                  <span className="font-bold text-sm text-gray-300">Source Code</span>
                 </div>
               </div>
-              <iframe srcDoc={srcDoc} title="preview" className="flex-1 w-full border-none bg-white" sandbox="allow-scripts" />
-            </div>
-          )}
-
-          {/* If React: Full Preview (No Terminal) */}
-          {isReact && (
-            <div className="h-full bg-white rounded-3xl overflow-hidden shadow-2xl border border-white/20 flex flex-col">
-              <div className="bg-gray-100 px-4 py-2 border-b border-gray-200 flex items-center justify-between shrink-0">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">React Live Preview</span>
-                <div className="flex gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-400"></div>
-                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-400"></div>
-                  <div className="w-2.5 h-2.5 rounded-full bg-green-400"></div>
-                </div>
+              <div className="flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed custom-scrollbar text-gray-300">
+                <pre>{video.codeData?.fetchedCode || video.codeData?.code}</pre>
               </div>
-              <iframe srcDoc={srcDoc} title="preview" className="flex-1 w-full border-none bg-white" sandbox="allow-scripts" />
             </div>
-          )}
 
-          {/* If C++: Full Terminal */}
-          {isCpp && (
-            <div className="h-full bg-[#1e1e1e] rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col">
+            {/* Right Column: Execution */}
+            <div className="col-span-1 h-fit bg-[#1e1e1e] rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col">
               <div className="flex items-center justify-between px-6 py-4 bg-[#2d2d2d] border-b border-black/20 shrink-0">
+                {/* ... terminal header ... */}
                 <div className="flex items-center gap-3">
                   <div className="flex gap-2">
                     <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
@@ -762,16 +738,17 @@ function VideoDetail() {
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );
-}
+};
 
 function App() {
   return (
     <Router>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/video/:id" element={<VideoDetail />} />
