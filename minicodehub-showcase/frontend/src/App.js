@@ -593,20 +593,31 @@ const VideoDetail = () => {
 
         {/* React/HTML: Sandpack Full Width */}
         {(isReact || isHtml) && (
-          <div className="col-span-1 lg:col-span-2 h-auto min-h-fit lg:h-fit rounded-3xl overflow-hidden border border-white/10 shadow-xl bg-[#1e1e1e]">
+          <div className={`col-span-1 lg:col-span-2 h-auto min-h-fit lg:h-fit`}>
             {isHtml ? (
-              <Sandpack
+              <SandpackProvider
                 template="static"
                 theme={draculaTheme}
                 files={sandpackFiles}
-                options={{
-                  showNavigator: true,
-                  showTabs: true,
-                  editorHeight: 1400, // Keep fixed for desktop, Sandpack handles internal responsiveness fairly well, but we might need to adjust if issues persist
-                  showLineNumbers: true,
-                  wrapContent: true,
-                }}
-              />
+              >
+                <div className="flex flex-col lg:flex-row h-fit w-full gap-6 md:gap-8">
+                  <div className="flex-1 h-1/2 lg:h-full overflow-hidden order-2 lg:order-1 rounded-3xl border border-white/10 shadow-xl bg-[#1e1e1e]">
+                    <SandpackCodeEditor
+                      showTabs
+                      showLineNumbers
+                      wrapContent
+                      readOnly={true}
+                      style={{ height: '1400px' }}
+                    />
+                  </div>
+                  <div className="flex-1 h-full lg:h-full order-1 lg:order-2 rounded-3xl border border-white/10 shadow-xl bg-[#1e1e1e] overflow-hidden">
+                    <SandpackPreview
+                      showNavigator={true}
+                      style={{ height: '1400px' }}
+                    />
+                  </div>
+                </div>
+              </SandpackProvider>
             ) : (
               <SandpackProvider
                 template="react-ts"
@@ -628,8 +639,8 @@ const VideoDetail = () => {
                   externalResources: ["https://cdn.tailwindcss.com"]
                 }}
               >
-                <div className="flex flex-col lg:flex-row h-fit w-full">
-                  <div className="flex-1 h-1/2 lg:h-full overflow-hidden order-2 lg:order-1">
+                <div className="flex flex-col lg:flex-row h-fit w-full gap-6 md:gap-8">
+                  <div className="flex-1 h-1/2 lg:h-full overflow-hidden order-2 lg:order-1 rounded-3xl border border-white/10 shadow-xl bg-[#1e1e1e]">
                     <SandpackCodeEditor
                       showTabs
                       showLineNumbers
@@ -640,7 +651,7 @@ const VideoDetail = () => {
                       style={{ height: '100vh' }}
                     />
                   </div>
-                  <div className="flex-1 h-full lg:h-full order-1 lg:order-2">
+                  <div className="flex-1 h-full lg:h-full order-1 lg:order-2 rounded-3xl border border-white/10 shadow-xl bg-[#1e1e1e] overflow-hidden">
                     <SandpackPreview
                       showNavigator={true}
                       showOpenInCodeSandbox={false}
@@ -657,7 +668,7 @@ const VideoDetail = () => {
         {isCpp && (
           <>
             {/* Left Column: Code View */}
-            <div className="h-fit bg-[#1e1e1e] rounded-3xl overflow-hidden border border-white/10 shadow-xl flex flex-col">
+            <div className="h-[100vh] bg-[#1e1e1e] rounded-3xl overflow-hidden border border-white/10 shadow-xl flex flex-col">
               <div className="flex items-center justify-between px-6 py-3 bg-white/5">
                 <div className="flex items-center gap-2">
                   <Code className="w-4 h-4 text-purple-400" />
@@ -670,7 +681,7 @@ const VideoDetail = () => {
             </div>
 
             {/* Right Column: Execution */}
-            <div className="col-span-1 h-fit bg-[#1e1e1e] rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col">
+            <div className="col-span-1 h-[100vh] bg-[#1e1e1e] rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col">
               <div className="flex items-center justify-between px-6 py-4 bg-[#2d2d2d] border-b border-black/20 shrink-0">
                 {/* ... terminal header ... */}
                 <div className="flex items-center gap-3">
