@@ -5,6 +5,8 @@ import { BrowserRouter as Router, Routes, Route, Link, useParams, useNavigate, u
 import { Play, Code, Monitor, ChevronLeft, Square, Search, Filter, Github, Linkedin, Mail, Youtube } from 'lucide-react';
 import io from 'socket.io-client';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://showcase-website-opee.onrender.com';
+
 // ScrollToTop Component
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -156,8 +158,8 @@ function Home() {
       console.log('🔄 Fetching:', params.toString()); // DEBUG
 
       const [videosRes, statsRes] = await Promise.all([
-        fetch(`/api/videos?${params}`),
-        fetch('/api/stats')
+        fetch(`${API_BASE_URL}/api/videos?${params}`),
+        fetch(`${API_BASE_URL}/api/stats`)
       ]);
 
       if (!videosRes.ok || !statsRes.ok) {
@@ -431,7 +433,7 @@ const VideoDetail = () => {
   const terminalEndRef = useRef(null);
 
   useEffect(() => {
-    fetch(`/api/video/${id}`)
+    fetch(`${API_BASE_URL}/api/video/${id}`)
       .then(res => {
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
         return res.json();
@@ -445,7 +447,7 @@ const VideoDetail = () => {
   }, [id]);
 
   useEffect(() => {
-    socketRef.current = io('http://localhost:3001');
+    socketRef.current = io(API_BASE_URL);
 
     socketRef.current.on('output', (data) => {
       setVideo(v => {
